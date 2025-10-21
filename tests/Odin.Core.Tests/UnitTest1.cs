@@ -1,4 +1,4 @@
-﻿namespace Odin.Core.Tests;
+namespace Odin.Core.Tests;
 
 public class UnitTest1
 {

@@ -1,4 +1,4 @@
-﻿namespace Odin.Sdk.Tests;
+namespace Odin.Sdk.Tests;
 
 public class UnitTest1
 {

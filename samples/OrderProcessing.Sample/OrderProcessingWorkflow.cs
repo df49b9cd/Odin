@@ -13,7 +13,7 @@ public class OrderProcessingWorkflow : IWorkflow<OrderRequest, OrderResult>
     {
         // TODO: Implement workflow execution using Hugo primitives
         // This is a placeholder demonstrating the intended structure
-        
+
         // Example structure (to be implemented):
         // return await ExecuteActivity<ValidateOrderActivity>(input)
         //     .Then(validated => ExecuteActivity<ProcessPaymentActivity>(validated))
@@ -21,11 +21,11 @@ public class OrderProcessingWorkflow : IWorkflow<OrderRequest, OrderResult>
         //     .Recover(error => ExecuteActivity<CompensateOrderActivity>(error))
         //     .Ensure(() => LogCompletion())
         //     .Finally(result => PersistAuditLog(result));
-        
+
         await Task.CompletedTask; // Placeholder
-        
-        return Result<OrderResult>.Ok(new OrderResult 
-        { 
+
+        return Result<OrderResult>.Ok(new OrderResult
+        {
             OrderId = input.OrderId,
             Status = "Completed"
         });

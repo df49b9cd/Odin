@@ -1,4 +1,4 @@
-﻿namespace Odin.ExecutionEngine.History;
+namespace Odin.ExecutionEngine.History;
 
 public class Class1
 {

@@ -1,4 +1,4 @@
-﻿namespace Odin.ExecutionEngine.Tests;
+namespace Odin.ExecutionEngine.Tests;
 
 public class UnitTest1
 {

@@ -1,4 +1,4 @@
-﻿namespace Odin.ExecutionEngine.Matching;
+namespace Odin.ExecutionEngine.Matching;
 
 public class Class1
 {
