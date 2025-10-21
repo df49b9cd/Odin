@@ -1,3 +1,6 @@
+using Hugo;
+using static Hugo.Go;
+
 namespace Odin.Sdk;
 
 /// <summary>
@@ -44,17 +47,4 @@ public interface IActivity<TInput, TOutput> : IActivity
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The activity result</returns>
     Task<Result<TOutput>> ExecuteAsync(TInput input, CancellationToken cancellationToken);
-}
-
-/// <summary>
-/// Placeholder for Hugo's Result type - will be replaced with actual Hugo reference
-/// </summary>
-public class Result<T>
-{
-    public bool IsSuccess { get; init; }
-    public T? Value { get; init; }
-    public string? Error { get; init; }
-
-    public static Result<T> Ok(T value) => new() { IsSuccess = true, Value = value };
-    public static Result<T> Fail(string error) => new() { IsSuccess = false, Error = error };
 }

@@ -6,4 +6,10 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="../Odin.Contracts/Odin.Contracts.csproj" />
+    <ProjectReference Include="../Odin.Core/Odin.Core.csproj" />
+    <ProjectReference Include="../Odin.Persistence/Odin.Persistence.csproj" />
+  </ItemGroup>
+
 </Project>

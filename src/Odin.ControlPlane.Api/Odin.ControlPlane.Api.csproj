@@ -8,7 +8,14 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
-    <PackageReference Include="Swashbuckle.AspNetCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Odin.Core\Odin.Core.csproj" />
+    <ProjectReference Include="..\Odin.Contracts\Odin.Contracts.csproj" />
+    <ProjectReference Include="..\Odin.Persistence\Odin.Persistence.csproj" />
+    <ProjectReference Include="..\Odin.ExecutionEngine.History\Odin.ExecutionEngine.History.csproj" />
+    <ProjectReference Include="..\Odin.ExecutionEngine.Matching\Odin.ExecutionEngine.Matching.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,4 +1,6 @@
+using Hugo;
 using Odin.Sdk;
+using static Hugo.Go;
 
 namespace OrderProcessing.Sample;
 
@@ -24,7 +26,7 @@ public class OrderProcessingWorkflow : IWorkflow<OrderRequest, OrderResult>
 
         await Task.CompletedTask; // Placeholder
 
-        return Result<OrderResult>.Ok(new OrderResult
+        return Result.Ok(new OrderResult
         {
             OrderId = input.OrderId,
             Status = "Completed"
