@@ -1,0 +1,170 @@
+version: '3.8'
+
+services:
+  # PostgreSQL for persistence
+  postgres:
+    image: postgres:14
+    container_name: odin-postgres
+    environment:
+      POSTGRES_DB: orchestrator
+      POSTGRES_USER: odin
+      POSTGRES_PASSWORD: odin_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Elasticsearch for visibility (optional)
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: odin-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # OpenTelemetry Collector
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.91.0
+    container_name: odin-otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./deployment/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8888:8888"   # Prometheus metrics
+      - "8889:8889"   # Prometheus exporter metrics
+    depends_on:
+      - jaeger
+
+  # Jaeger for distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:1.51
+    container_name: odin-jaeger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14250:14250"  # gRPC
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+
+  # Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: odin-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deployment/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:10.2.2
+    container_name: odin-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./deployment/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./deployment/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+
+  # Odin Control Plane gRPC Service
+  odin-grpc:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime-grpc
+    container_name: odin-grpc
+    ports:
+      - "7233:7233"
+    environment:
+      - HUGO_ORCHESTRATOR_DB_CONNECTION=Host=postgres;Database=orchestrator;Username=odin;Password=odin_dev_password
+      - HUGO_ORCHESTRATOR_ELASTICSEARCH_URL=http://elasticsearch:9200
+      - HUGO_ORCHESTRATOR_OTLP_ENDPOINT=http://otel-collector:4317
+      - HUGO_ORCHESTRATOR_SHARD_COUNT=512
+      - HUGO_ORCHESTRATOR_HISTORY_RETENTION_DAYS=30
+    depends_on:
+      postgres:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    restart: unless-stopped
+
+  # Odin Control Plane REST API
+  odin-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime-api
+    container_name: odin-api
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    environment:
+      - HUGO_ORCHESTRATOR_DB_CONNECTION=Host=postgres;Database=orchestrator;Username=odin;Password=odin_dev_password
+      - HUGO_ORCHESTRATOR_ELASTICSEARCH_URL=http://elasticsearch:9200
+      - HUGO_ORCHESTRATOR_OTLP_ENDPOINT=http://otel-collector:4317
+      - HUGO_ORCHESTRATOR_GRPC_ENDPOINT=http://odin-grpc:7233
+    depends_on:
+      postgres:
+        condition: service_healthy
+      odin-grpc:
+        condition: service_started
+      otel-collector:
+        condition: service_started
+    restart: unless-stopped
+
+  # Odin System Workers
+  odin-workers:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime-workers
+    container_name: odin-workers
+    environment:
+      - HUGO_ORCHESTRATOR_DB_CONNECTION=Host=postgres;Database=orchestrator;Username=odin;Password=odin_dev_password
+      - HUGO_ORCHESTRATOR_OTLP_ENDPOINT=http://otel-collector:4317
+      - HUGO_ORCHESTRATOR_GRPC_ENDPOINT=http://odin-grpc:7233
+    depends_on:
+      postgres:
+        condition: service_healthy
+      odin-grpc:
+        condition: service_started
+      otel-collector:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  elasticsearch-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  default:
+    name: odin-network

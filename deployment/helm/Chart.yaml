@@ -1,0 +1,16 @@
+apiVersion: v2
+name: odin
+description: Hugo Durable Orchestrator - Temporal-style workflow orchestration platform
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - orchestrator
+  - workflows
+  - temporal
+  - hugo
+maintainers:
+  - name: Odin Team
+home: https://github.com/df49b9cd/Odin
+sources:
+  - https://github.com/df49b9cd/Odin

@@ -1,8 +1,8 @@
-# Hugo Durable Orchestrator - Copilot Instructions
+# Hugo Durable Orchestrator (Odin) - Copilot Instructions
 
 ## Project Overview
 
-You are working on the **Hugo Durable Orchestrator**, a Temporal/Cadence-style workflow orchestration platform built on Hugo 0.5.8 concurrency primitives. This system provides durable workflow execution, history replay, and distributed task routing while maintaining Hugo as the core worker/runtime SDK.
+You are working on the **Hugo Durable Orchestrator**, a Temporal/Cadence-style workflow orchestration platform built on Hugo 1.0.0 concurrency primitives. This system provides durable workflow execution, history replay, and distributed task routing while maintaining Hugo as the core worker/runtime SDK.
 
 ### Core Architecture Components
 
@@ -15,7 +15,7 @@ You are working on the **Hugo Durable Orchestrator**, a Temporal/Cadence-style w
 ## Technology Stack
 
 - **Runtime**: .NET 10
-- **Core Library**: Hugo 0.5.8 (concurrency primitives and diagnostics)
+- **Core Library**: Hugo 1.0.0 (concurrency primitives and diagnostics)
 - **APIs**: gRPC (primary) + REST (facade)
 - **Persistence**: PostgreSQL 14+ or MySQL 8.0.19+
 - **Search**: Elasticsearch 8.x or SQL advanced visibility
@@ -312,7 +312,7 @@ HUGO_ORCHESTRATOR_HISTORY_RETENTION_DAYS=30
 ## Support Resources
 
 - Temporal Documentation: https://docs.temporal.io/
-- Hugo Library Reference: [Internal docs]
+- Hugo Library Reference: [Internal docs] and https://github.com/df49b9cd/Hugo
 - Architecture Decisions: docs/architecture/
 - Runbooks: docs/operations/
 - API Reference: docs/api/

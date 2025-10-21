@@ -1,0 +1,20 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'odin-api'
+    static_configs:
+      - targets: ['odin-api:8080']
+    
+  - job_name: 'odin-grpc'
+    static_configs:
+      - targets: ['odin-grpc:7233']
+    
+  - job_name: 'odin-workers'
+    static_configs:
+      - targets: ['odin-workers:8080']
+  
+  - job_name: 'otel-collector'
+    static_configs:
+      - targets: ['otel-collector:8888', 'otel-collector:8889']

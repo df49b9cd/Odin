@@ -1,0 +1,140 @@
+# Default values for Odin
+replicaCount:
+  api: 2
+  grpc: 3
+  workers: 2
+
+image:
+  repository: odin
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+
+service:
+  api:
+    type: ClusterIP
+    port: 8080
+  grpc:
+    type: ClusterIP
+    port: 7233
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: odin.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  api:
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  grpc:
+    limits:
+      cpu: 2000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  workers:
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Odin Configuration
+odin:
+  persistence:
+    type: postgresql  # postgresql or mysql
+    host: postgres
+    port: 5432
+    database: orchestrator
+    username: odin
+    existingSecret: ""  # Name of existing secret with password
+    secretKey: password
+  
+  visibility:
+    type: sql  # sql or elasticsearch
+    elasticsearch:
+      url: http://elasticsearch:9200
+      index: odin-visibility
+  
+  telemetry:
+    otlp:
+      endpoint: http://otel-collector:4317
+      enabled: true
+    prometheus:
+      enabled: true
+      port: 8080
+  
+  sharding:
+    historyShardCount: 512
+  
+  retention:
+    defaultRetentionDays: 30
+
+# PostgreSQL dependency (if using)
+postgresql:
+  enabled: true
+  auth:
+    username: odin
+    password: odin_dev_password
+    database: orchestrator
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+
+# Elasticsearch dependency (if using)
+elasticsearch:
+  enabled: false
+  replicas: 1
+  minimumMasterNodes: 1
+  volumeClaimTemplate:
+    resources:
+      requests:
+        storage: 10Gi

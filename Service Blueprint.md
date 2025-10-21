@@ -2,7 +2,7 @@
 
 ## Overview
 
-- Launch the “Hugo Durable Orchestrator” as a Temporal/Cadence-style control plane that layers Hugo 0.5.8 concurrency primitives and the `Hugo.Diagnostics.OpenTelemetry` 0.5.8 instrumentation stack to deliver durable workflow execution, history replay, and task routing while keeping Hugo as the worker/runtime SDK.
+- Launch the “Hugo Durable Orchestrator” as a Temporal/Cadence-style control plane that layers Hugo 1.0.0 concurrency primitives and the `Hugo.Diagnostics.OpenTelemetry` 1.0.0 instrumentation stack to deliver durable workflow execution, history replay, and task routing while keeping Hugo as the worker/runtime SDK.
 - Constrain the initial release to single-region, single-cluster deployments with pluggable SQL persistence (PostgreSQL 14+/MySQL 8.0.19+) and optional Elasticsearch 8.x or SQL advanced visibility per Temporal v1.20+ guidance from [Temporal service docs](https://docs.temporal.io/temporal-service).
 - Provide managed worker and site runtimes that consume orchestrator task queues through Hugo’s primitives (`WaitGroup`, `ErrGroup`, `TaskQueueChannelAdapter<T>`, channels) so customers can adopt either the raw Hugo library or the orchestrator SDK with consistent cancellation semantics.
 - Expose a hosted API surface (gRPC + REST) for namespaces, workflow lifecycle, signals, queries, schedules, and visibility that mirrors Temporal Frontend behaviour ([Temporal server architecture](https://docs.temporal.io/temporal-service/temporal-server)) while enforcing deterministic workflow definitions.

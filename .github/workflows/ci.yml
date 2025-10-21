@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_DB: orchestrator_test
+          POSTGRES_USER: odin
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+        dotnet-quality: 'preview'
+    
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Build
+      run: dotnet build --no-restore --configuration Release
+    
+    - name: Test
+      run: dotnet test --no-build --configuration Release --verbosity normal --collect:"XPlat Code Coverage"
+      env:
+        HUGO_ORCHESTRATOR_DB_CONNECTION: Server=localhost;Database=orchestrator_test;Username=odin;Password=test_password
+    
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        files: '**/coverage.cobertura.xml'
+        fail_ci_if_error: false
+
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+        dotnet-quality: 'preview'
+    
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Check formatting
+      run: dotnet format --verify-no-changes --verbosity diagnostic
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [build, lint]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build Docker images
+      run: |
+        docker build --target runtime-api -t odin-api:latest .
+        docker build --target runtime-grpc -t odin-grpc:latest .
+        docker build --target runtime-workers -t odin-workers:latest .
+        docker build --target runtime-workerhost -t odin-workerhost:latest .
+        docker build --target runtime-cli -t odin-cli:latest .
