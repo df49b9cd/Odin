@@ -4,33 +4,28 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
-
   <ItemGroup>
     <!-- Common packages -->
+    <PackageVersion Include="Hugo" Version="1.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0-rc.2.25502.107" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0-rc.2.25502.107" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0-rc.2.25502.107" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.0-rc.2.25502.107" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0-rc.2.25502.107" />
-    
     <!-- ASP.NET Core -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0-rc.2.25502.107" />
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="7.0.0" />
-    
     <!-- gRPC -->
     <PackageVersion Include="Grpc.AspNetCore" Version="2.70.0" />
     <PackageVersion Include="Grpc.AspNetCore.Server.Reflection" Version="2.70.0" />
     <PackageVersion Include="Grpc.Tools" Version="2.70.0" />
     <PackageVersion Include="Google.Protobuf" Version="3.28.3" />
-    
     <!-- Database -->
     <PackageVersion Include="Npgsql" Version="9.0.1" />
     <PackageVersion Include="MySql.Data" Version="9.1.0" />
     <PackageVersion Include="Dapper" Version="2.1.35" />
-    
     <!-- Elasticsearch (optional) -->
     <PackageVersion Include="Elastic.Clients.Elasticsearch" Version="8.15.10" />
-    
     <!-- OpenTelemetry -->
     <PackageVersion Include="OpenTelemetry" Version="1.10.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.10.0" />
@@ -39,10 +34,8 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.10.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.10.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.SqlClient" Version="1.10.0-beta.1" />
-    
     <!-- Serialization -->
     <PackageVersion Include="System.Text.Json" Version="10.0.0-rc.2.25502.107" />
-    
     <!-- Testing -->
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />

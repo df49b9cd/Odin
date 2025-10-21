@@ -1,0 +1,30 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/samples/">
+    <Project Path="samples/OrderProcessing.Sample/OrderProcessing.Sample.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Odin.Cli/Odin.Cli.csproj" />
+    <Project Path="src/Odin.Contracts/Odin.Contracts.csproj" />
+    <Project Path="src/Odin.ControlPlane.Api/Odin.ControlPlane.Api.csproj" />
+    <Project Path="src/Odin.ControlPlane.Grpc/Odin.ControlPlane.Grpc.csproj" />
+    <Project Path="src/Odin.Core/Odin.Core.csproj" />
+    <Project Path="src/Odin.ExecutionEngine.History/Odin.ExecutionEngine.History.csproj" />
+    <Project Path="src/Odin.ExecutionEngine.Matching/Odin.ExecutionEngine.Matching.csproj" />
+    <Project Path="src/Odin.ExecutionEngine.SystemWorkers/Odin.ExecutionEngine.SystemWorkers.csproj" />
+    <Project Path="src/Odin.Persistence/Odin.Persistence.csproj" />
+    <Project Path="src/Odin.Sdk/Odin.Sdk.csproj" />
+    <Project Path="src/Odin.Visibility/Odin.Visibility.csproj" />
+    <Project Path="src/Odin.WorkerHost/Odin.WorkerHost.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Odin.Core.Tests/Odin.Core.Tests.csproj" />
+    <Project Path="tests/Odin.ExecutionEngine.Tests/Odin.ExecutionEngine.Tests.csproj" />
+    <Project Path="tests/Odin.Integration.Tests/Odin.Integration.Tests.csproj" />
+    <Project Path="tests/Odin.Sdk.Tests/Odin.Sdk.Tests.csproj" />
+  </Folder>
+</Solution>
