@@ -37,11 +37,11 @@
     <!-- Serialization -->
     <PackageVersion Include="System.Text.Json" Version="10.0.0-rc.2.25502.107" />
     <!-- Testing -->
-    <PackageVersion Include="xunit" Version="2.9.3" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageVersion Include="xunit.v3" Version="0.5.0-pre.27" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.0.0-pre.35" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
-    <PackageVersion Include="FluentAssertions" Version="6.12.0" />
-    <PackageVersion Include="Moq" Version="4.20.70" />
+    <PackageVersion Include="Shouldly" Version="4.2.1" />
+    <PackageVersion Include="NSubstitute" Version="5.3.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
   </ItemGroup>
 </Project>

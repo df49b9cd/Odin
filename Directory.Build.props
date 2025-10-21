@@ -35,7 +35,7 @@
 
   <!-- Test project packages -->
   <ItemGroup Condition="'$(IsTestProject)' == 'true'">
-    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -44,8 +44,8 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="FluentAssertions" />
-    <PackageReference Include="Moq" />
+    <PackageReference Include="Shouldly" />
+    <PackageReference Include="NSubstitute" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
   </ItemGroup>
 </Project>

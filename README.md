@@ -112,6 +112,7 @@ See [Service Blueprint](Service%20Blueprint.md) for the full roadmap.
 - **APIs**: gRPC (Temporal-compatible) + REST
 - **Persistence**: PostgreSQL 14+ or MySQL 8.0.19+
 - **Visibility**: Elasticsearch 8.x or SQL advanced visibility
+- **Testing**: xUnit v3, Shouldly, NSubstitute
 - **Observability**: OpenTelemetry, Prometheus, Grafana, Jaeger
 - **Deployment**: Docker, Kubernetes, Helm
 
@@ -142,6 +143,7 @@ See [samples/](samples/) for complete examples.
 - **Getting Started**: [docs/getting-started.md](docs/getting-started.md)
 - **Architecture**: [docs/architecture/README.md](docs/architecture/README.md)
 - **Package Management**: [docs/PACKAGE_MANAGEMENT.md](docs/PACKAGE_MANAGEMENT.md)
+- **Test Framework Migration**: [docs/TEST_FRAMEWORK_MIGRATION.md](docs/TEST_FRAMEWORK_MIGRATION.md)
 - **Workflow Development**: Coming soon
 - **API Reference**: Coming soon
 - **Operations**: Coming soon
