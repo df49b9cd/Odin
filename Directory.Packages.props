@@ -23,7 +23,7 @@
     <!-- Database -->
     <PackageVersion Include="Npgsql" Version="9.0.1" />
     <PackageVersion Include="MySql.Data" Version="9.1.0" />
-    <PackageVersion Include="Dapper" Version="2.1.35" />
+    <PackageVersion Include="Dapper" Version="2.1.66" />
     <!-- Elasticsearch (optional) -->
     <PackageVersion Include="Elastic.Clients.Elasticsearch" Version="8.15.10" />
     <!-- OpenTelemetry -->
