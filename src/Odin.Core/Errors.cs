@@ -82,6 +82,16 @@ public static class OdinErrorCodes
     /// Rate limit exceeded
     /// </summary>
     public const string RateLimitExceeded = "RATE_LIMIT_EXCEEDED";
+
+    /// <summary>
+    /// Task not found
+    /// </summary>
+    public const string TaskNotFound = "TASK_NOT_FOUND";
+
+    /// <summary>
+    /// Task lease expired
+    /// </summary>
+    public const string TaskLeaseExpired = "TASK_LEASE_EXPIRED";
 }
 
 /// <summary>
