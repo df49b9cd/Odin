@@ -141,6 +141,7 @@ See [samples/](samples/) for complete examples.
 
 - **Getting Started**: [docs/getting-started.md](docs/getting-started.md)
 - **Architecture**: [docs/architecture/README.md](docs/architecture/README.md)
+- **Package Management**: [docs/PACKAGE_MANAGEMENT.md](docs/PACKAGE_MANAGEMENT.md)
 - **Workflow Development**: Coming soon
 - **API Reference**: Coming soon
 - **Operations**: Coming soon
