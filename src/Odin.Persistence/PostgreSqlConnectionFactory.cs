@@ -30,50 +30,54 @@ public sealed class PostgreSqlConnectionFactory : IDbConnectionFactory
 
     public async Task<Result<IDbConnection>> CreateConnectionAsync(CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var connection = new NpgsqlConnection(_connectionString);
-            await connection.OpenAsync(cancellationToken);
+        return await Result
+            .TryAsync<IDbConnection>(async ct =>
+            {
+                var connection = new NpgsqlConnection(_connectionString);
+                await connection.OpenAsync(ct).ConfigureAwait(false);
 
-            _logger.LogDebug("Opened PostgreSQL connection {ConnectionId}", connection.ProcessID);
+                _logger.LogDebug("Opened PostgreSQL connection {ConnectionId}", connection.ProcessID);
 
-            return Result.Ok<IDbConnection>(connection);
-        }
-        catch (NpgsqlException ex)
-        {
-            _logger.LogError(ex, "Failed to open PostgreSQL connection");
-            return Result.Fail<IDbConnection>(
-                Error.From($"Database connection failed: {ex.Message}", "DB_CONNECTION_ERROR"));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Unexpected error opening PostgreSQL connection");
-            return Result.Fail<IDbConnection>(
-                Error.From($"Unexpected database error: {ex.Message}", "DB_UNEXPECTED_ERROR"));
-        }
+                return connection;
+            }, cancellationToken, ex =>
+            {
+                switch (ex)
+                {
+                    case NpgsqlException npgsqlEx:
+                        _logger.LogError(npgsqlEx, "Failed to open PostgreSQL connection");
+                        return Error.From($"Database connection failed: {npgsqlEx.Message}", "DB_CONNECTION_ERROR");
+                    default:
+                        _logger.LogError(ex, "Unexpected error opening PostgreSQL connection");
+                        return Error.From($"Unexpected database error: {ex.Message}", "DB_UNEXPECTED_ERROR");
+                }
+            })
+            .ConfigureAwait(false);
     }
 
     public async Task<Result<bool>> TestConnectionAsync(CancellationToken cancellationToken = default)
     {
-        var connectionResult = await CreateConnectionAsync(cancellationToken);
-        if (connectionResult.IsFailure)
-            return Result.Fail<bool>(connectionResult.Error!);
+        return await (await CreateConnectionAsync(cancellationToken).ConfigureAwait(false))
+            .ThenAsync(async (connection, ct) =>
+            {
+                using (connection)
+                {
+                    return await Result
+                        .TryAsync(async innerCt =>
+                        {
+                            using var command = connection.CreateCommand();
+                            command.CommandText = "SELECT 1";
+                            var _ = await Task.Run(() => command.ExecuteScalar(), innerCt).ConfigureAwait(false);
 
-        using var connection = connectionResult.Value;
-        try
-        {
-            using var command = connection.CreateCommand();
-            command.CommandText = "SELECT 1";
-            var _ = await Task.Run(() => command.ExecuteScalar(), cancellationToken);
-
-            _logger.LogInformation("PostgreSQL connection test succeeded");
-            return Result.Ok(true);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "PostgreSQL connection test failed");
-            return Result.Fail<bool>(
-                Error.From($"Connection test failed: {ex.Message}", "DB_TEST_FAILED"));
-        }
+                            _logger.LogInformation("PostgreSQL connection test succeeded");
+                            return true;
+                        }, ct, ex =>
+                        {
+                            _logger.LogError(ex, "PostgreSQL connection test failed");
+                            return Error.From($"Connection test failed: {ex.Message}", "DB_TEST_FAILED");
+                        })
+                        .ConfigureAwait(false);
+                }
+            }, cancellationToken)
+            .ConfigureAwait(false);
     }
 }

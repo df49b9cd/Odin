@@ -39,6 +39,8 @@ using static Hugo.Go;
 5. **Result<T>**: Pipeline-based error handling (Then, Recover, Ensure, Finally)
 6. **DeterministicEffectStore**: Capturing side effects for replay safety
 7. **VersionGate**: Managing workflow versioning and compatibility
+8. **Result Execution Policies**: Prefer `Result.WhenAll`, `Result.WhenAny`, and `Result.RetryWithPolicyAsync` over custom fan-out/race/retry loops. Build policies with `ResultExecutionBuilders` and reuse Hugo compensation scopes.
+9. **Functional Extensions**: Use `Then`, `Map`, `Tap`, `TapError`, `Recover`, and async counterparts for flow control instead of manual `if (result.IsFailure)` checks.
 
 ## Coding Standards
 
@@ -62,6 +64,7 @@ using static Hugo.Go;
    - Always propagate CancellationToken through the call chain
    - Use Hugo's cancellation primitives for coordinated shutdown
    - Implement proper cleanup in deferred blocks
+   - Prefer Hugo's `Result.With` helpers before introducing new timeout constructs; if a custom timeout helper is required, leave a `// TODO: Move to Hugo` note and implement it alongside Odin scaffolding.
 
 ### Activity Implementation
 
@@ -83,6 +86,11 @@ using static Hugo.Go;
    services.AddHostedService<WorkflowWorker>();
    services.AddHugoDiagnostics(config => { /* OTLP configuration */ });
    ```
+
+3. **Result Handling**
+   - Wrap disposable resources with `Result.TryAsync` + `ThenAsync` instead of bare `try/catch`.
+   - Surface failures through `Error.From`/`Error.Aggregate` and log via `TapError`/`Tap`.
+   - Only write bespoke helpers when Hugo lacks a primitive and annotate them with a TODO to upstream.
 
 ## API Design Guidelines
 

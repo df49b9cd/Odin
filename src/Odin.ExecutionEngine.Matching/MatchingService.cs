@@ -33,21 +33,16 @@ public sealed class MatchingService : IMatchingService
     {
         try
         {
-            var enqueueResult = await _taskQueueRepository.EnqueueAsync(task, cancellationToken);
-
-            if (enqueueResult.IsFailure)
-            {
-                _logger.LogError(
+            return (await _taskQueueRepository.EnqueueAsync(task, cancellationToken).ConfigureAwait(false))
+                .TapError(error => _logger.LogError(
                     "Failed to enqueue task to queue {QueueName}: {Error}",
-                    task.TaskQueueName, enqueueResult.Error?.Message);
-                return enqueueResult;
-            }
-
-            _logger.LogDebug(
-                "Enqueued task {TaskId} to queue {QueueName} (type: {TaskType})",
-                enqueueResult.Value, task.TaskQueueName, task.TaskQueueType);
-
-            return enqueueResult;
+                    task.TaskQueueName,
+                    error.Message))
+                .Tap(taskId => _logger.LogDebug(
+                    "Enqueued task {TaskId} to queue {QueueName} (type: {TaskType})",
+                    taskId,
+                    task.TaskQueueName,
+                    task.TaskQueueType));
         }
         catch (Exception ex)
         {
@@ -71,28 +66,26 @@ public sealed class MatchingService : IMatchingService
     {
         try
         {
-            var pollResult = await _taskQueueRepository.PollAsync(
+            return (await _taskQueueRepository.PollAsync(
                 queueName,
                 workerIdentity,
                 leaseTimeout,
-                cancellationToken);
-
-            if (pollResult.IsFailure)
-            {
-                _logger.LogError(
+                cancellationToken).ConfigureAwait(false))
+                .TapError(error => _logger.LogError(
                     "Failed to poll queue {QueueName}: {Error}",
-                    queueName, pollResult.Error?.Message);
-                return pollResult;
-            }
-
-            if (pollResult.Value != null)
-            {
-                _logger.LogDebug(
-                    "Worker {WorkerIdentity} acquired task from queue {QueueName} (lease: {LeaseId})",
-                    workerIdentity, queueName, pollResult.Value.LeaseId);
-            }
-
-            return pollResult;
+                    queueName,
+                    error.Message))
+                .Tap(lease =>
+                {
+                    if (lease is not null)
+                    {
+                        _logger.LogDebug(
+                            "Worker {WorkerIdentity} acquired task from queue {QueueName} (lease: {LeaseId})",
+                            workerIdentity,
+                            queueName,
+                            lease.LeaseId);
+                    }
+                });
         }
         catch (Exception ex)
         {
@@ -114,20 +107,14 @@ public sealed class MatchingService : IMatchingService
     {
         try
         {
-            var heartbeatResult = await _taskQueueRepository.HeartbeatAsync(
+            return (await _taskQueueRepository.HeartbeatAsync(
                 leaseId,
                 extendBy,
-                cancellationToken);
-
-            if (heartbeatResult.IsFailure)
-            {
-                _logger.LogWarning(
+                cancellationToken).ConfigureAwait(false))
+                .TapError(error => _logger.LogWarning(
                     "Failed to heartbeat lease {LeaseId}: {Error}",
-                    leaseId, heartbeatResult.Error?.Message);
-                return heartbeatResult;
-            }
-
-            return heartbeatResult;
+                    leaseId,
+                    error.Message));
         }
         catch (Exception ex)
         {
@@ -149,24 +136,19 @@ public sealed class MatchingService : IMatchingService
     {
         try
         {
-            var completeResult = await _taskQueueRepository.CompleteAsync(
+            return (await _taskQueueRepository.CompleteAsync(
                 taskId,
                 leaseId,
-                cancellationToken);
-
-            if (completeResult.IsFailure)
-            {
-                _logger.LogWarning(
+                cancellationToken).ConfigureAwait(false))
+                .TapError(error => _logger.LogWarning(
                     "Failed to complete task {TaskId} with lease {LeaseId}: {Error}",
-                    taskId, leaseId, completeResult.Error?.Message);
-                return completeResult;
-            }
-
-            _logger.LogDebug(
-                "Completed task {TaskId} with lease {LeaseId}",
-                taskId, leaseId);
-
-            return Result.Ok(Unit.Value);
+                    taskId,
+                    leaseId,
+                    error.Message))
+                .Tap(_ => _logger.LogDebug(
+                    "Completed task {TaskId} with lease {LeaseId}",
+                    taskId,
+                    leaseId));
         }
         catch (Exception ex)
         {
@@ -190,26 +172,21 @@ public sealed class MatchingService : IMatchingService
     {
         try
         {
-            var failResult = await _taskQueueRepository.FailAsync(
+            return (await _taskQueueRepository.FailAsync(
                 taskId,
                 leaseId,
                 reason,
                 requeue,
-                cancellationToken);
-
-            if (failResult.IsFailure)
-            {
-                _logger.LogWarning(
+                cancellationToken).ConfigureAwait(false))
+                .TapError(error => _logger.LogWarning(
                     "Failed to mark task {TaskId} as failed: {Error}",
-                    taskId, failResult.Error?.Message);
-                return failResult;
-            }
-
-            _logger.LogWarning(
-                "Task {TaskId} failed: {Reason} (requeue: {Requeue})",
-                taskId, reason, requeue);
-
-            return Result.Ok(Unit.Value);
+                    taskId,
+                    error.Message))
+                .Tap(_ => _logger.LogWarning(
+                    "Task {TaskId} failed: {Reason} (requeue: {Requeue})",
+                    taskId,
+                    reason,
+                    requeue));
         }
         catch (Exception ex)
         {
@@ -230,22 +207,18 @@ public sealed class MatchingService : IMatchingService
     {
         try
         {
-            var depthResult = await _taskQueueRepository.GetQueueDepthAsync(
+            return (await _taskQueueRepository.GetQueueDepthAsync(
                 queueName,
-                cancellationToken);
-
-            if (depthResult.IsFailure)
-            {
-                return Result.Fail<QueueStats>(depthResult.Error!);
-            }
-
-            var stats = new QueueStats
-            {
-                QueueName = queueName,
-                PendingTasks = depthResult.Value
-            };
-
-            return Result.Ok(stats);
+                cancellationToken).ConfigureAwait(false))
+                .TapError(error => _logger.LogError(
+                    "Failed to get stats for queue {QueueName}: {Error}",
+                    queueName,
+                    error.Message))
+                .Map(depth => new QueueStats
+                {
+                    QueueName = queueName,
+                    PendingTasks = depth
+                });
         }
         catch (Exception ex)
         {
@@ -265,25 +238,20 @@ public sealed class MatchingService : IMatchingService
     {
         try
         {
-            var reclaimResult = await _taskQueueRepository.ReclaimExpiredLeasesAsync(
-                cancellationToken);
-
-            if (reclaimResult.IsFailure)
-            {
-                _logger.LogError(
+            return (await _taskQueueRepository.ReclaimExpiredLeasesAsync(
+                cancellationToken).ConfigureAwait(false))
+                .TapError(error => _logger.LogError(
                     "Failed to reclaim expired leases: {Error}",
-                    reclaimResult.Error?.Message);
-                return reclaimResult;
-            }
-
-            if (reclaimResult.Value > 0)
-            {
-                _logger.LogInformation(
-                    "Reclaimed {Count} expired task leases",
-                    reclaimResult.Value);
-            }
-
-            return reclaimResult;
+                    error.Message))
+                .Tap(count =>
+                {
+                    if (count > 0)
+                    {
+                        _logger.LogInformation(
+                            "Reclaimed {Count} expired task leases",
+                            count);
+                    }
+                });
         }
         catch (Exception ex)
         {
