@@ -11,9 +11,6 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER update_namespaces_updated_at BEFORE UPDATE ON namespaces
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_workflow_executions_updated_at BEFORE UPDATE ON workflow_executions
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
 CREATE TRIGGER update_visibility_records_updated_at BEFORE UPDATE ON visibility_records
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -30,13 +27,25 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
-CREATE OR REPLACE FUNCTION cleanup_expired_tasks()
+CREATE OR REPLACE FUNCTION cleanup_expired_tasks(p_older_than TIMESTAMPTZ DEFAULT NULL)
 RETURNS INTEGER AS $$
 DECLARE
     deleted_count INTEGER;
 BEGIN
-    DELETE FROM task_queues
-    WHERE expiry_at IS NOT NULL AND expiry_at < NOW();
+    DELETE FROM task_queues tq
+    WHERE (tq.expiry_at IS NOT NULL AND tq.expiry_at < NOW())
+       OR (
+            p_older_than IS NOT NULL
+        AND tq.scheduled_at < p_older_than
+        AND NOT EXISTS (
+            SELECT 1
+            FROM task_queue_leases tql
+            WHERE tql.namespace_id = tq.namespace_id
+              AND tql.task_queue_name = tq.task_queue_name
+              AND tql.task_queue_type = tq.task_queue_type
+              AND tql.task_id = tq.task_id
+        )
+       );
     
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
     RETURN deleted_count;

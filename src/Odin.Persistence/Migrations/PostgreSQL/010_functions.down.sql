@@ -8,5 +8,6 @@ DROP TRIGGER IF EXISTS update_namespaces_updated_at ON namespaces;
 DROP FUNCTION IF EXISTS get_next_task(UUID, VARCHAR, VARCHAR, VARCHAR, INTEGER);
 DROP FUNCTION IF EXISTS cleanup_expired_leases();
 DROP FUNCTION IF EXISTS cleanup_expired_tasks();
+DROP FUNCTION IF EXISTS cleanup_expired_tasks(TIMESTAMPTZ);
 DROP FUNCTION IF EXISTS calculate_shard_id(VARCHAR, INTEGER);
 DROP FUNCTION IF EXISTS update_updated_at_column();

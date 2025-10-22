@@ -144,83 +144,85 @@ INSERT INTO task_queues (
 
         try
         {
-            const string selectSql = @"
-SELECT
-    tq.namespace_id,
-    tq.task_queue_name,
-    tq.task_queue_type,
-    tq.task_id,
-    tq.workflow_id,
-    tq.run_id,
-    tq.scheduled_at,
-    tq.expiry_at,
-    tq.task_data::text AS task_data,
-    tq.partition_hash
-FROM task_queues tq
-WHERE tq.task_queue_name = @QueueName
-  AND (tq.expiry_at IS NULL OR tq.expiry_at > NOW())
-  AND NOT EXISTS (
-        SELECT 1
-        FROM task_queue_leases tql
-        WHERE tql.namespace_id = tq.namespace_id
-          AND tql.task_queue_name = tq.task_queue_name
-          AND tql.task_queue_type = tq.task_queue_type
-          AND tql.task_id = tq.task_id
-          AND tql.lease_expires_at > NOW()
-    )
-ORDER BY tq.scheduled_at
+            const string metadataSql = @"
+SELECT namespace_id, task_queue_type
+FROM task_queues
+WHERE task_queue_name = @QueueName
+  AND (expiry_at IS NULL OR expiry_at > NOW())
+ORDER BY scheduled_at
 LIMIT 1
 FOR UPDATE SKIP LOCKED";
 
-            var taskRow = await connection.QuerySingleOrDefaultAsync<TaskQueueRow>(
-                selectSql,
+            var metadata = await connection.QuerySingleOrDefaultAsync<QueueMetadataRow>(
+                metadataSql,
                 new { QueueName = queueName },
                 transaction);
 
-            if (taskRow is null)
+            if (metadata is null)
             {
                 transaction.Commit();
                 return Result.Ok<TaskLease?>(null);
             }
 
-            const string insertLeaseSql = @"
-INSERT INTO task_queue_leases (
+            const string functionSql = @"
+SELECT task_id, lease_id
+FROM get_next_task(@NamespaceId, @QueueName, @TaskQueueType, @WorkerIdentity, @LeaseDurationSeconds)";
+
+            var functionResult = await connection.QuerySingleOrDefaultAsync<GetNextTaskResult>(
+                functionSql,
+                new
+                {
+                    metadata.NamespaceId,
+                    QueueName = queueName,
+                    metadata.TaskQueueType,
+                    WorkerIdentity = workerIdentity,
+                    LeaseDurationSeconds = DefaultLeaseDurationSeconds
+                },
+                transaction);
+
+            if (functionResult is null)
+            {
+                transaction.Commit();
+                return Result.Ok<TaskLease?>(null);
+            }
+
+            const string taskSql = @"
+SELECT
     namespace_id,
     task_queue_name,
     task_queue_type,
     task_id,
-    lease_id,
-    worker_identity,
-    leased_at,
-    lease_expires_at,
-    heartbeat_at,
-    attempt_count
-) VALUES (
-    @NamespaceId,
-    @TaskQueueName,
-    @TaskQueueType,
-    @TaskId,
-    gen_random_uuid(),
-    @WorkerIdentity,
-    NOW(),
-    NOW() + (@LeaseDurationSeconds || ' seconds')::INTERVAL,
-    NOW(),
-    @AttemptCount
-)
-RETURNING lease_id, leased_at, lease_expires_at, heartbeat_at, attempt_count, worker_identity";
+    workflow_id,
+    run_id,
+    scheduled_at,
+    expiry_at,
+    task_data::text AS task_data,
+    partition_hash
+FROM task_queues
+WHERE namespace_id = @NamespaceId
+  AND task_queue_name = @QueueName
+  AND task_queue_type = @TaskQueueType
+  AND task_id = @TaskId";
 
-            var leaseRow = await connection.QuerySingleAsync<TaskQueueLeaseRow>(
-                insertLeaseSql,
+            var taskRow = await connection.QuerySingleAsync<TaskQueueRow>(
+                taskSql,
                 new
                 {
-                    taskRow.NamespaceId,
-                    taskRow.TaskQueueName,
-                    taskRow.TaskQueueType,
-                    taskRow.TaskId,
-                    WorkerIdentity = workerIdentity,
-                    LeaseDurationSeconds = DefaultLeaseDurationSeconds,
-                    AttemptCount = 1
+                    metadata.NamespaceId,
+                    QueueName = queueName,
+                    metadata.TaskQueueType,
+                    TaskId = functionResult.TaskId
                 },
+                transaction);
+
+            const string leaseSql = @"
+SELECT lease_id, leased_at, lease_expires_at, heartbeat_at, attempt_count, worker_identity
+FROM task_queue_leases
+WHERE lease_id = @LeaseId";
+
+            var leaseRow = await connection.QuerySingleAsync<TaskQueueLeaseRow>(
+                leaseSql,
+                new { LeaseId = functionResult.LeaseId },
                 transaction);
 
             transaction.Commit();
@@ -598,17 +600,10 @@ GROUP BY task_queue_name";
 
         using var connection = connectionResult.Value;
 
-        const string sql = @"
-WITH reclaimed AS (
-    DELETE FROM task_queue_leases
-    WHERE lease_expires_at < NOW()
-    RETURNING 1
-)
-SELECT COUNT(*)::INT FROM reclaimed";
-
         try
         {
-            var reclaimed = await connection.QuerySingleAsync<int>(sql);
+            var reclaimed = await connection.ExecuteScalarAsync<int>(
+                "SELECT cleanup_expired_leases();");
             return Result.Ok(reclaimed);
         }
         catch (Exception ex)
@@ -631,26 +626,10 @@ SELECT COUNT(*)::INT FROM reclaimed";
 
         using var connection = connectionResult.Value;
 
-        const string sql = @"
-WITH purged AS (
-    DELETE FROM task_queues tq
-    WHERE tq.scheduled_at < @OlderThan
-      AND NOT EXISTS (
-          SELECT 1
-          FROM task_queue_leases tql
-          WHERE tql.namespace_id = tq.namespace_id
-            AND tql.task_queue_name = tq.task_queue_name
-            AND tql.task_queue_type = tq.task_queue_type
-            AND tql.task_id = tq.task_id
-      )
-    RETURNING 1
-)
-SELECT COUNT(*)::INT FROM purged";
-
         try
         {
-            var count = await connection.QuerySingleAsync<int>(
-                sql,
+            var count = await connection.ExecuteScalarAsync<int>(
+                "SELECT cleanup_expired_tasks(@OlderThan);",
                 new { OlderThan = olderThan.UtcDateTime });
 
             return Result.Ok(count);
@@ -716,6 +695,14 @@ SELECT COUNT(*)::INT FROM purged";
             : value.ToUniversalTime();
         return new DateTimeOffset(specified);
     }
+
+    private sealed record QueueMetadataRow(
+        Guid NamespaceId,
+        string TaskQueueType);
+
+    private sealed record GetNextTaskResult(
+        long TaskId,
+        Guid LeaseId);
 
     private sealed record TaskQueueRow(
         Guid NamespaceId,

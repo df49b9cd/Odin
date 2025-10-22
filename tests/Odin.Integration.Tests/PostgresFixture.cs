@@ -30,7 +30,11 @@ public sealed class PostgresFixture : IAsyncLifetime
         "003_workflow_executions.up.sql",
         "004_history_events.up.sql",
         "005_task_queues.up.sql",
-        "006_visibility_records.up.sql"
+        "006_visibility_records.up.sql",
+        "007_timers.up.sql",
+        "008_signals_queries.up.sql",
+        "009_schedules.up.sql",
+        "010_functions.up.sql"
     };
 
     private readonly PostgreSqlContainer _container;

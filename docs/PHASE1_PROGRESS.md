@@ -331,7 +331,7 @@ src/Odin.Persistence/
 - [x] Implement VisibilityRepository with advanced search
 - [x] Harden ShardRepository lease renewal/release paths with integration tests
 - [x] Add repository unit tests (in-memory) and PostgreSQL integration tests for Namespace/Workflow/History/TaskQueue/Visibility flows
-- [ ] Wire PostgreSQL functions (`get_next_task`, cleanup routines) through TaskQueueRepository logic
+- [x] Wire PostgreSQL functions (`get_next_task`, cleanup routines) through TaskQueueRepository logic
 
 ### Priority 2: Worker SDK Core
 
@@ -343,7 +343,7 @@ src/Odin.Persistence/
 ### Priority 3: Execution Engine
 
 - [ ] Build HistoryService with event persistence and replay
-- [ ] Build MatchingService with TaskQueueChannelAdapter<T>
+- [ ] Build `MatchingService` with `TaskQueueChannelAdapter<T>`
 - [ ] Implement system workers (TimerWorker, RetryWorker, CleanupWorker)
 
 ### Priority 4: APIs
