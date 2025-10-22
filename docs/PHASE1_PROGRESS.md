@@ -296,8 +296,8 @@ src/Odin.Persistence/
 ### 2. Worker SDK Core
 
 - **Objective**: Expose deterministic workflow/activity primitives on top of Hugo Result pipelines.
-- **Status**: 🔄 Core utilities (Errors, GoHelpers, Hashing, JsonOptions) ready; higher-level workflow abstractions not yet started.
-- **Immediate Focus**: Define `IWorkflow`/`IActivity` contracts, `WorkflowExecutionContext`, and integrate `DeterministicEffectStore` + `VersionGate`.
+- **Status**: ✅ Workflow runtime scaffolding in place: context accessors, deterministic effects, and version gating exposed through the SDK.
+- **Immediate Focus**: Build worker host plumbing (task queue polling, dispatcher) and ship sample workflows/activities using the new runtime.
 
 ### 3. Execution Engine Services
 
@@ -335,10 +335,10 @@ src/Odin.Persistence/
 
 ### Priority 2: Worker SDK Core
 
-- [ ] Implement IWorkflow/IActivity with Hugo Result<T>
-- [ ] Create WorkflowExecutionContext with replay support
-- [ ] Integrate DeterministicEffectStore for side effects
-- [ ] Implement VersionGate for workflow versioning
+- [x] Implement IWorkflow/IActivity with Hugo Result<T>
+- [x] Create WorkflowExecutionContext with replay support
+- [x] Integrate DeterministicEffectStore for side effects
+- [x] Implement VersionGate for workflow versioning
 
 ### Priority 3: Execution Engine
 
