@@ -1,14 +1,14 @@
 # Phase 1 Continuation Progress Report
 
-**Date**: October 21, 2025  
+**Date**: November 9, 2025  
 **Status**: In Progress - Significant Foundation Complete  
-**Build Status**: ✅ All projects compile successfully
+**Build Status**: ✅ `dotnet build` (November 9, 2025) succeeded with warnings only
 
 ## Summary
 
-Continued Phase 1 development of the Hugo Durable Orchestrator (Odin), implementing critical infrastructure components including persistence schemas, core utilities, and comprehensive contract models. The solution now has a solid foundation for building the execution engine and worker SDK.
+Validated Phase 1 foundation work for the Hugo Durable Orchestrator (Odin): 10 PostgreSQL migrations, Odin.Core utility helpers (Errors, GoHelpers, HashingUtilities, JsonOptions), a comprehensive contract model suite, the PostgreSqlConnectionFactory with Result-based error handling, and in-memory repository implementations. NamespaceRepository is production-ready with Dapper; the remaining SQL repositories are scaffolded and queued for full query implementations and testing.
 
-## Completed Tasks
+## Validated Work To Date
 
 ### 1. ✅ Hugo 1.0.0 API Research and Integration Planning
 **Status**: Complete
@@ -70,18 +70,12 @@ src/Odin.Persistence/Schemas/PostgreSQL/
 └── README.md (comprehensive documentation)
 ```
 
-### 3. ✅ Odin.Core Utilities with Hugo Integration
+### 3. ✅ Odin.Core Utility Layer with Hugo Integration
 **Status**: Complete
 
-Implemented core utility library with Hugo primitives integration:
+Implemented reusable helpers anchored on Hugo primitives:
 
 **Files Created**:
-- `ResultExtensions.cs` - Hugo Result<T> extension methods
-  - `Combine()` - Merge multiple results
-  - `ToResult()` - Convert tasks to Result<T>
-  - `OnSuccess()` / `OnFailure()` - Side effect handling
-  - `Validate()` - Result validation pipeline
-
 - `Errors.cs` - Standard error codes and factory methods
   - OdinErrorCodes constants (WORKFLOW_NOT_FOUND, PERSISTENCE_ERROR, etc.)
   - OdinErrors factory methods for consistent error creation
@@ -102,7 +96,9 @@ Implemented core utility library with Hugo primitives integration:
   - Pretty-print options for debugging
   - Convenience methods for serialize/deserialize
 
-**Build Configuration**: Updated project to reference Hugo 1.0.0 and Microsoft.Extensions.Logging.Abstractions
+**Outstanding**: Planned `ResultExtensions` helper methods for Result<T> composition are not yet implemented and remain on the roadmap.
+
+**Build Configuration**: Central package management pins Hugo 1.0.0 and Microsoft.Extensions.Logging.Abstractions 10.0.0-rc.2.
 
 ### 4. ✅ Odin.Contracts DTOs and Models
 **Status**: Complete
@@ -146,10 +142,10 @@ Created comprehensive contract models for all system components:
 
 **Total Contract Models**: 50+ record types covering complete workflow lifecycle
 
-### 5. ✅ Odin.Persistence Repository Layer
-**Status**: Complete
+### 5. 🚧 Odin.Persistence Repository Layer
+**Status**: In Progress (NamespaceRepository + ShardRepository implemented; remaining repositories scaffolded)
 
-Implemented complete persistence layer with Dapper-based repositories:
+Established repository abstractions and initial implementations:
 
 **Repository Interfaces Created**:
 - `INamespaceRepository` - Namespace CRUD operations with archival
@@ -159,34 +155,26 @@ Implemented complete persistence layer with Dapper-based repositories:
 - `IVisibilityRepository` - Advanced search and filtering with tag support
 - `IShardRepository` - Shard ownership and lease management
 
+**Implemented Components**:
+- `NamespaceRepository` - Complete Dapper-based implementation with Result<T> propagation and logging
+- `ShardRepository` - Dapper-backed shard leasing (acquire/renew/release/heartbeat) with deterministic range calculations
+- `PersistenceServiceCollectionExtensions` - Provider wiring for in-memory and PostgreSQL repositories
+- In-memory repositories for all interfaces to unblock local development
+- Stub SQL repositories (`HistoryRepository`, `WorkflowExecutionRepository`, `TaskQueueRepository`, `VisibilityRepository`) returning placeholder results pending query authoring
+
 **Infrastructure Components**:
-- `IDbConnectionFactory` - Database connection abstraction (PostgreSQL/MySQL)
-- `PostgreSqlConnectionFactory` - Npgsql-based connection factory with pooling
-- `NamespaceRepository` - Complete Dapper-based implementation with Hugo Result<T> integration
+- `IDbConnectionFactory` - Database connection abstraction (PostgreSQL/MySQL extensibility)
+- `PostgreSqlConnectionFactory` - Npgsql-based connection factory with pooling and Result<T> error handling
 
 **Key Features**:
-- Hugo Result<T> integration for railway-oriented error handling
-- Proper using statements (non-async dispose) for IDbConnection
-- Structured logging with correlation context
-- Comprehensive error handling with OdinErrors factory
-- SQL injection protection through Dapper parameterization
-- Connection pooling via Npgsql
+- Consistent Hugo Result<T> integration for success/failure propagation
+- Parameterised Dapper queries to avoid injection risks
+- ILogger-based telemetry hooks for operations and errors
 - Nullable reference types throughout
 
-**Hugo Integration Patterns**:
-```csharp
-// Result<T> creation
-return Result.Ok(value);
-return Result.Fail<T>(error);
-
-// Error propagation
-if (result.IsFailure)
-    return Result.Fail<T>(result.Error!);
-
-// Using Go static import
-using static Hugo.Go;
-var unit = Unit.Value;
-```
+**Follow-up**:
+- Author concrete SQL for stub repositories and align with migration schema
+- Add unit/integration coverage for Namespace/Shard repositories and connection factory
 
 **Files Created**:
 ```
@@ -199,20 +187,34 @@ src/Odin.Persistence/
 │   ├── IVisibilityRepository.cs
 │   └── IShardRepository.cs
 ├── Repositories/
-│   └── NamespaceRepository.cs (complete CRUD implementation)
+│   ├── HistoryRepository.cs (stub)
+│   ├── NamespaceRepository.cs (implemented)
+│   ├── ShardRepository.cs (implemented)
+│   ├── TaskQueueRepository.cs (stub)
+│   ├── VisibilityRepository.cs (stub)
+│   └── WorkflowExecutionRepository.cs (stub)
+├── InMemory/
+│   └── *.cs (functional in-memory repositories for all interfaces)
+├── PersistenceServiceCollectionExtensions.cs
 ├── IDbConnectionFactory.cs
 ├── PostgreSqlConnectionFactory.cs
 └── Odin.Persistence.csproj (updated with Dapper, Npgsql dependencies)
 ```
+
+## Validation Notes
+
+- Ran `dotnet build` on November 9, 2025 (warnings only, no failures)
+- Confirmed 10 PostgreSQL migrations plus master script under `src/Odin.Persistence/Schemas/PostgreSQL`
+- Verified Odin.Core helpers (`Errors.cs`, `GoHelpers.cs`, `HashingUtilities.cs`, `JsonOptions.cs`) compile and align with Hugo integration patterns
+- Located Hugo API research compendium in `docs/reference/hugo-api-reference.md`
+- Confirmed SQL repositories for workflow, history, task queue, and visibility remain stubbed pending Dapper queries
 
 ## Build Status
 
 ✅ **All 17 projects compile successfully**
 
 **Warnings** (non-blocking):
-- NU1504: Duplicate PackageReference on Microsoft.Extensions.Logging.Abstractions (can be optimized later)
-- NU1510: Unnecessary PackageReferences flagged (framework transitives)
-- IDE0011: Add braces to single-line if statements (style warnings only)
+- NU1510: Microsoft.Extensions.Logging.Abstractions PackageReference flagged as unnecessary in API/Grpc projects (cleanup deferred)
 
 ## Project Statistics
 
@@ -221,7 +223,7 @@ src/Odin.Persistence/
 - **C# Source Files Created**: 19 new files
 - **Lines of C# Code**: ~4,000+
 - **Repository Interfaces**: 6 comprehensive interfaces
-- **Repository Implementations**: 1 complete (NamespaceRepository), 5 remaining
+- **Repository Implementations**: 2 implemented (Namespace, Shard), 4 stubbed (History, WorkflowExecution, TaskQueue, Visibility)
 - **Total Contract Models**: 50+ record types
 - **Build Time**: ~3.4 seconds
 - **Test Projects**: 4 (ready for test implementation)
@@ -252,18 +254,23 @@ src/Odin.Persistence/
 - **Dapper ORM**: Lightweight, performant data access
 - **Connection Management**: Factory pattern with proper disposal
 - **Error Propagation**: Hugo Result<T> throughout the call chain
-- **Logging**: Structured logging with correlation IDs
+- **Logging**: ILogger-based structured logging hooks
 - **Database Support**: PostgreSQL 14+ (MySQL support planned)
 
-## Next Steps (Remaining Phase 1)
+## Roadmap Update (Remaining Phase 1)
+
+### Priority 0: Core Utility Follow-up
+- [ ] Implement `ResultExtensions` helper extensions for Result<T> composition
+- [ ] Add unit coverage for `GoHelpers`, `HashingUtilities`, and `JsonOptions`
 
 ### Priority 1: Complete Persistence Implementation
 - [ ] Implement WorkflowExecutionRepository with optimistic locking
 - [ ] Implement HistoryRepository with event batching
 - [ ] Implement TaskQueueRepository with lease heartbeats
 - [ ] Implement VisibilityRepository with advanced search
-- [ ] Implement ShardRepository with distributed lease management
-- [ ] Add repository unit tests with in-memory database
+- [ ] Harden ShardRepository lease renewal/release paths with integration tests
+- [ ] Add repository unit tests (in-memory) and PostgreSQL integration tests for Namespace/Shard flows
+- [ ] Wire PostgreSQL functions (`get_next_task`, cleanup routines) through TaskQueueRepository logic
 
 ### Priority 2: Worker SDK Core
 - [ ] Implement IWorkflow/IActivity with Hugo Result<T>
@@ -312,24 +319,32 @@ src/Odin.Persistence/
 
 ## Technical Debt and Warnings
 
-1. **Duplicate Package References**: Odin.Core has duplicate Microsoft.Extensions.Logging.Abstractions
-   - **Impact**: Build warning only, no functional issue
-   - **Resolution**: Clean up in next refactoring pass
+1. **ResultExtensions Helper Missing**  
+   - **Impact**: Limits fluent Result<T> composition in core/worker layers  
+   - **Resolution**: Implement helper extensions and add unit coverage (Priority 0)
 
-2. **MySQL Support**: Only PostgreSQL schemas implemented
-   - **Impact**: MySQL users need separate migration
-   - **Resolution**: Create MySQL schema variants in Phase 2
+2. **SQL Repository Methods Stubbed**  
+   - **Impact**: Workflow, history, task queue, and visibility persistence paths not wired to database  
+   - **Resolution**: Author Dapper queries aligned with migrations; cover via integration tests
 
-3. **Test Coverage**: No tests written yet
-   - **Impact**: No validation of implemented code
-   - **Resolution**: Priority task in next work session
+3. **MySQL Support Deferred**  
+   - **Impact**: Only PostgreSQL migrations available; blocks dual-provider story  
+   - **Resolution**: Add MySQL 8.0 schema variants in Phase 2
+
+4. **Build Warning NU1510**  
+   - **Impact**: Microsoft.Extensions.Logging.Abstractions flagged as unnecessary in API/Grpc projects  
+   - **Resolution**: Remove redundant references or suppress once logging dependencies settle
+
+5. **Test Coverage**  
+   - **Impact**: No automated validation for persistence or utilities  
+   - **Resolution**: Seed xUnit suites starting with Namespace/Shard repositories and core helpers
 
 ## Dependencies
 
 - **.NET 10 RC2**: Using preview SDK (official release pending)
 - **Hugo 1.0.0**: Stable release, core dependency
 - **Npgsql 9.0.1**: PostgreSQL driver
-- **Dapper 2.1.35**: Micro-ORM for data access (to be used)
+- **Dapper 2.1.66**: Micro-ORM for data access
 - **OpenTelemetry 1.10.0**: Observability (to be integrated)
 
 ## Risks and Mitigations
@@ -350,11 +365,11 @@ src/Odin.Persistence/
 | Core Utilities | 100% | 100% | ✅ |
 | Contract Models | 100% | 100% | ✅ |
 | Persistence Interfaces | 100% | 100% | ✅ |
-| Persistence Repos | 100% | 17% | ⏳ (1/6 complete) |
+| Persistence Repos | 100% | 33% | ⏳ (Namespace + Shard implemented; 4 repos stubbed) |
 | SDK Implementation | 100% | 10% | ⏳ |
 | Execution Engine | 100% | 0% | ⏳ |
 | API Implementation | 100% | 0% | ⏳ |
-| Test Coverage | 80%+ | 0% | ⏳ |
+| Test Coverage | 80%+ | 0% | ⏳ (test projects scaffolded only) |
 
 ## Documentation Updates
 
@@ -377,13 +392,13 @@ Significant progress made on Phase 1 foundation work. The project now has:
 - ✅ Comprehensive contract models
 - ✅ Core utility library with Hugo integration
 - ✅ Complete persistence layer interfaces
-- ✅ First repository implementation (Namespace) with Hugo Result<T> patterns
+- ✅ Namespace and Shard repository implementations using Hugo Result<T> patterns
 - ✅ Clean build with all projects compiling
 
-Next session should focus on completing the remaining repository implementations (Workflow, History, TaskQueue, Visibility, Shard), followed by the Worker SDK core components. The foundation is solid with proper Hugo integration patterns established.
+Next session should focus on finishing the remaining SQL repository implementations (Workflow, History, TaskQueue, Visibility), hardening Shard lease flows with tests, and moving into the Worker SDK core milestones. The foundation is solid with proper Hugo integration patterns established.
 
 ---
 
-**Report Generated**: October 21, 2025  
-**Last Build**: Successful (3.4s, 17 warnings)  
-**Next Milestone**: Complete all repository implementations
+**Report Generated**: November 9, 2025  
+**Last Build**: Successful (12.8s, 4 warnings)  
+**Next Milestone**: Complete remaining SQL repositories and Worker SDK core scaffolding

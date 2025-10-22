@@ -70,7 +70,7 @@
 ## Incremental Delivery Plan
 
 - **Phase 0 (4 weeks):** Finalize requirements, ERDs, and persistence schemas; prototype SQL history shards, task queue tables, and namespace admin flows; validate Hugo integration needs (TaskQueueChannelAdapter usage, deterministic state store persistence) and capture any required library extensions.
-- **Phase 1 (8–10 weeks):** Deliver Control Plane + Execution Engine in a single cluster, wire CRUD + workflow lifecycle APIs, implement worker SDK atop Hugo with basic workflows/activities/timers/retries/signals, integrate `AddHugoDiagnostics`, and ship CLI plus smoke tests covering end-to-end execution.
+- **Phase 1 (8–10 weeks, in progress):** Finish PostgreSQL-backed persistence (complete Dapper repositories + integration coverage), stand up the Result-oriented worker SDK core (ResultExtensions, workflow/activity abstractions, DeterministicEffectStore), scaffold history/matching services with Hugo TaskQueue plumbing, expose an initial gRPC WorkflowService façade, and ship CLI-driven smoke tests across in-memory and PostgreSQL providers.
 - **Phase 2 (6–8 weeks):** Add visibility APIs, Elasticsearch/SQL advanced search, workflow archiving, retention management, and workflow versioning; publish dashboards using Aspire/OpenTelemetry exporters and document troubleshooting playbooks.
 - **Phase 3 (8–10 weeks):** Introduce namespace auth/multitenancy, worker identity policies, cross-region replication design spike, blue/green deployment tooling, production hardening (observability SLOs, load tests, upgrade playbooks), and compliance reporting.
 
