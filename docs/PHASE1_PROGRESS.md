@@ -329,7 +329,7 @@ src/Odin.Persistence/
 - [x] Implement HistoryRepository with event batching
 - [x] Implement TaskQueueRepository with lease heartbeats
 - [x] Implement VisibilityRepository with advanced search
-- [ ] Harden ShardRepository lease renewal/release paths with integration tests
+- [x] Harden ShardRepository lease renewal/release paths with integration tests
 - [ ] Add repository unit tests (in-memory) and PostgreSQL integration tests for Namespace/Workflow/History/TaskQueue/Visibility flows
 - [ ] Wire PostgreSQL functions (`get_next_task`, cleanup routines) through TaskQueueRepository logic
 

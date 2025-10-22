@@ -26,6 +26,7 @@ public sealed class PostgresFixture : IAsyncLifetime
     private static readonly string[] RequiredMigrations =
     {
         "001_namespaces.up.sql",
+        "002_history_shards.up.sql",
         "003_workflow_executions.up.sql"
     };
 
@@ -53,6 +54,7 @@ public sealed class PostgresFixture : IAsyncLifetime
         {
             await _container.StartAsync();
             await ApplyMigrationsAsync();
+            await EnsureShardsInitializedAsync();
             _dockerAvailable = true;
         }
         catch (Exception ex) when (IsDockerUnavailable(ex))
@@ -73,6 +75,9 @@ public sealed class PostgresFixture : IAsyncLifetime
 
         await connection.ExecuteAsync("TRUNCATE TABLE workflow_executions CASCADE;");
         await connection.ExecuteAsync("TRUNCATE TABLE namespaces CASCADE;");
+        await connection.ExecuteAsync("TRUNCATE TABLE history_shards CASCADE;");
+
+        await EnsureShardsInitializedAsync();
     }
 
     public async Task<Guid> CreateNamespaceAsync(string namespaceName)
@@ -108,6 +113,13 @@ RETURNING namespace_id;
         return new WorkflowExecutionRepository(
             CreateConnectionFactory(),
             NullLogger<WorkflowExecutionRepository>.Instance);
+    }
+
+    public ShardRepository CreateShardRepository()
+    {
+        return new ShardRepository(
+            CreateConnectionFactory(),
+            NullLogger<ShardRepository>.Instance);
     }
 
     public void EnsureDockerIsRunning()
@@ -152,6 +164,16 @@ RETURNING namespace_id;
         }
 
         return scripts;
+    }
+
+    private async Task EnsureShardsInitializedAsync()
+    {
+        var shardRepository = CreateShardRepository();
+        var initializeResult = await shardRepository.InitializeShardsAsync(512);
+        if (initializeResult.IsFailure)
+        {
+            throw new InvalidOperationException($"Failed to initialize shards: {initializeResult.Error?.Message}");
+        }
     }
 
     private PostgreSqlBuilder ConfigureContainerRuntime(PostgreSqlBuilder builder)
