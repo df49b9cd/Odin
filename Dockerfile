@@ -3,7 +3,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy solution and project files
-COPY Odin.sln ./
+COPY Odin.slnx ./
 COPY src/Odin.Contracts/*.csproj ./src/Odin.Contracts/
 COPY src/Odin.Core/*.csproj ./src/Odin.Core/
 COPY src/Odin.Persistence/*.csproj ./src/Odin.Persistence/
