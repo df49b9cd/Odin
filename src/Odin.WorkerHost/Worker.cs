@@ -1,16 +1,53 @@
+using Odin.Sdk;
+using Odin.WorkerHost.Infrastructure;
+
 namespace Odin.WorkerHost;
 
-public class Worker(ILogger<Worker> logger) : BackgroundService
+public sealed class Worker(
+    IWorkflowTaskQueue taskQueue,
+    WorkflowExecutor executor,
+    ILogger<Worker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        logger.LogInformation("Worker host started.");
+
         while (!stoppingToken.IsCancellationRequested)
         {
-            if (logger.IsEnabled(LogLevel.Information))
+            WorkflowTask task;
+
+            try
             {
-                logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
+                task = await taskQueue.DequeueAsync(stoppingToken);
             }
-            await Task.Delay(1000, stoppingToken);
+            catch (TaskCanceledException)
+            {
+                break;
+            }
+
+            logger.LogInformation(
+                "Processing workflow {WorkflowId}/{RunId} ({WorkflowType})",
+                task.WorkflowId,
+                task.RunId,
+                task.WorkflowType);
+
+            var result = await executor.ExecuteAsync(task, stoppingToken).ConfigureAwait(false);
+
+            if (result.IsSuccess)
+            {
+                logger.LogInformation(
+                    "Workflow {WorkflowId} completed successfully.",
+                    task.WorkflowId);
+            }
+            else
+            {
+                logger.LogError(
+                    "Workflow {WorkflowId} failed: {Error}",
+                    task.WorkflowId,
+                    result.Error?.Message);
+            }
         }
+
+        logger.LogInformation("Worker host stopping.");
     }
 }
