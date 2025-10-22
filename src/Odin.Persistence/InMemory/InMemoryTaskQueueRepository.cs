@@ -12,22 +12,16 @@ namespace Odin.Persistence.InMemory;
 /// In-memory task queue repository backed by <see cref="Hugo.TaskQueue{T}"/>.
 /// Provides cooperative leasing semantics with automatic expiry handling.
 /// </summary>
-public sealed class InMemoryTaskQueueRepository : ITaskQueueRepository, IAsyncDisposable
+public sealed class InMemoryTaskQueueRepository(TaskQueueOptions? options, TimeProvider? timeProvider = null) : ITaskQueueRepository, IAsyncDisposable
 {
     private readonly ConcurrentDictionary<string, QueueContext> _queues = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<Guid, LeaseHandle> _leases = new();
-    private readonly TimeProvider _timeProvider;
-    private readonly OptionsSnapshot _defaultOptions;
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+    private readonly OptionsSnapshot _defaultOptions = new OptionsSnapshot(options ?? new TaskQueueOptions());
 
     public InMemoryTaskQueueRepository()
         : this(options: null, timeProvider: null)
     {
-    }
-
-    public InMemoryTaskQueueRepository(TaskQueueOptions? options, TimeProvider? timeProvider = null)
-    {
-        _timeProvider = timeProvider ?? TimeProvider.System;
-        _defaultOptions = new OptionsSnapshot(options ?? new TaskQueueOptions());
     }
 
     public async Task<Result<Guid>> EnqueueAsync(
@@ -333,52 +327,32 @@ public sealed class InMemoryTaskQueueRepository : ITaskQueueRepository, IAsyncDi
 
     private sealed record QueueEntry(Guid InstanceId, TaskQueueItem Task);
 
-    private sealed class QueueContext
+    private sealed class QueueContext(string name, TaskQueue<InMemoryTaskQueueRepository.QueueEntry> queue, TaskQueueChannelAdapter<InMemoryTaskQueueRepository.QueueEntry> adapter, InMemoryTaskQueueRepository.OptionsSnapshot options)
     {
-        public QueueContext(string name, TaskQueue<QueueEntry> queue, TaskQueueChannelAdapter<QueueEntry> adapter, OptionsSnapshot options)
-        {
-            Name = name;
-            Queue = queue;
-            Adapter = adapter;
-            Options = options;
-        }
-
-        public string Name { get; }
-        public TaskQueue<QueueEntry> Queue { get; }
-        public TaskQueueChannelAdapter<QueueEntry> Adapter { get; }
-        public OptionsSnapshot Options { get; }
+        public string Name { get; } = name;
+        public TaskQueue<QueueEntry> Queue { get; } = queue;
+        public TaskQueueChannelAdapter<QueueEntry> Adapter { get; } = adapter;
+        public OptionsSnapshot Options { get; } = options;
         public ChannelReader<TaskQueueLease<QueueEntry>> Reader => Adapter.Reader;
     }
 
-    private sealed class LeaseHandle
+    private sealed class LeaseHandle(
+InMemoryTaskQueueRepository.QueueContext context,
+        string workerIdentity,
+        Guid leaseId,
+        TaskQueueLease<InMemoryTaskQueueRepository.QueueEntry> lease,
+        DateTimeOffset leasedAt)
     {
-        private readonly QueueContext _context;
-        private readonly TaskQueueLease<QueueEntry> _lease;
+        private readonly QueueContext _context = context;
+        private readonly TaskQueueLease<QueueEntry> _lease = lease;
         private readonly object _sync = new();
-        private DateTimeOffset _heartbeatAt;
-        private DateTimeOffset _expiresAt;
+        private DateTimeOffset _heartbeatAt = leasedAt;
+        private DateTimeOffset _expiresAt = leasedAt + context.Options.LeaseDuration;
 
-        public LeaseHandle(
-            QueueContext context,
-            string workerIdentity,
-            Guid leaseId,
-            TaskQueueLease<QueueEntry> lease,
-            DateTimeOffset leasedAt)
-        {
-            _context = context;
-            _lease = lease;
-            WorkerIdentity = workerIdentity;
-            LeaseId = leaseId;
-            TaskId = lease.Value.InstanceId;
-            LeasedAt = leasedAt;
-            _heartbeatAt = leasedAt;
-            _expiresAt = leasedAt + context.Options.LeaseDuration;
-        }
-
-        public Guid LeaseId { get; }
-        public Guid TaskId { get; }
-        public string WorkerIdentity { get; }
-        public DateTimeOffset LeasedAt { get; }
+        public Guid LeaseId { get; } = leaseId;
+        public Guid TaskId { get; } = lease.Value.InstanceId;
+        public string WorkerIdentity { get; } = workerIdentity;
+        public DateTimeOffset LeasedAt { get; } = leasedAt;
         public TaskQueueLease<QueueEntry> Lease => _lease;
 
         public DateTimeOffset HeartbeatAt

@@ -11,24 +11,16 @@ namespace Odin.ExecutionEngine.History;
 /// History service manages workflow event history append, retrieval, and validation.
 /// Implements sharded history processing with deterministic event sequencing.
 /// </summary>
-public sealed class HistoryService : IHistoryService
+public sealed class HistoryService(
+    IHistoryRepository historyRepository,
+    IShardRepository shardRepository,
+    ILogger<HistoryService> logger,
+    string hostIdentity) : IHistoryService
 {
-    private readonly IHistoryRepository _historyRepository;
-    private readonly IShardRepository _shardRepository;
-    private readonly ILogger<HistoryService> _logger;
-    private readonly string _hostIdentity;
-
-    public HistoryService(
-        IHistoryRepository historyRepository,
-        IShardRepository shardRepository,
-        ILogger<HistoryService> logger,
-        string hostIdentity)
-    {
-        _historyRepository = historyRepository;
-        _shardRepository = shardRepository;
-        _logger = logger;
-        _hostIdentity = hostIdentity;
-    }
+    private readonly IHistoryRepository _historyRepository = historyRepository;
+    private readonly IShardRepository _shardRepository = shardRepository;
+    private readonly ILogger<HistoryService> _logger = logger;
+    private readonly string _hostIdentity = hostIdentity;
 
     /// <summary>
     /// Appends new events to workflow history with shard ownership validation.

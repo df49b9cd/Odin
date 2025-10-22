@@ -12,18 +12,12 @@ namespace Odin.Persistence.Repositories;
 /// PostgreSQL/MySQL implementation of shard repository.
 /// Manages distributed shard ownership coordination with leases.
 /// </summary>
-public sealed class ShardRepository : IShardRepository
+public sealed class ShardRepository(
+    IDbConnectionFactory connectionFactory,
+    ILogger<ShardRepository> logger) : IShardRepository
 {
-    private readonly IDbConnectionFactory _connectionFactory;
-    private readonly ILogger<ShardRepository> _logger;
-
-    public ShardRepository(
-        IDbConnectionFactory connectionFactory,
-        ILogger<ShardRepository> logger)
-    {
-        _connectionFactory = connectionFactory;
-        _logger = logger;
-    }
+    private readonly IDbConnectionFactory _connectionFactory = connectionFactory;
+    private readonly ILogger<ShardRepository> _logger = logger;
 
     public async Task<Result<ShardLease>> AcquireLeaseAsync(
         int shardId,

@@ -12,19 +12,12 @@ namespace Odin.Persistence.InMemory;
 /// <summary>
 /// In-memory implementation of <see cref="INamespaceRepository"/> used for development and prototyping.
 /// </summary>
-public sealed class InMemoryNamespaceRepository : INamespaceRepository
+public sealed class InMemoryNamespaceRepository(ILogger<InMemoryNamespaceRepository> logger) : INamespaceRepository
 {
-    private readonly ConcurrentDictionary<string, Namespace> _namespacesByName;
-    private readonly ConcurrentDictionary<Guid, string> _nameIndex;
-    private readonly ILogger<InMemoryNamespaceRepository> _logger;
+    private readonly ConcurrentDictionary<string, Namespace> _namespacesByName = new ConcurrentDictionary<string, Namespace>(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<Guid, string> _nameIndex = new ConcurrentDictionary<Guid, string>();
+    private readonly ILogger<InMemoryNamespaceRepository> _logger = logger;
     private readonly object _sync = new();
-
-    public InMemoryNamespaceRepository(ILogger<InMemoryNamespaceRepository> logger)
-    {
-        _logger = logger;
-        _namespacesByName = new ConcurrentDictionary<string, Namespace>(StringComparer.OrdinalIgnoreCase);
-        _nameIndex = new ConcurrentDictionary<Guid, string>();
-    }
 
     public Task<Result<Namespace>> CreateAsync(
         CreateNamespaceRequest request,

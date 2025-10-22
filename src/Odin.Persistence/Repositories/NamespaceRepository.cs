@@ -14,18 +14,12 @@ namespace Odin.Persistence.Repositories;
 /// PostgreSQL/MySQL implementation of namespace repository using Dapper.
 /// Provides CRUD operations for namespace management with retry logic.
 /// </summary>
-public sealed class NamespaceRepository : INamespaceRepository
+public sealed class NamespaceRepository(
+    IDbConnectionFactory connectionFactory,
+    ILogger<NamespaceRepository> logger) : INamespaceRepository
 {
-    private readonly IDbConnectionFactory _connectionFactory;
-    private readonly ILogger<NamespaceRepository> _logger;
-
-    public NamespaceRepository(
-        IDbConnectionFactory connectionFactory,
-        ILogger<NamespaceRepository> logger)
-    {
-        _connectionFactory = connectionFactory;
-        _logger = logger;
-    }
+    private readonly IDbConnectionFactory _connectionFactory = connectionFactory;
+    private readonly ILogger<NamespaceRepository> _logger = logger;
 
     public async Task<Result<Namespace>> CreateAsync(
         CreateNamespaceRequest request,

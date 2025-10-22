@@ -14,18 +14,12 @@ namespace Odin.ControlPlane.Api.Controllers;
 [ApiController]
 [Route("api/v1/tasks")]
 [Produces("application/json")]
-public sealed class TaskQueueController : ControllerBase
+public sealed class TaskQueueController(
+    IMatchingService matchingService,
+    ILogger<TaskQueueController> logger) : ControllerBase
 {
-    private readonly IMatchingService _matchingService;
-    private readonly ILogger<TaskQueueController> _logger;
-
-    public TaskQueueController(
-        IMatchingService matchingService,
-        ILogger<TaskQueueController> logger)
-    {
-        _matchingService = matchingService;
-        _logger = logger;
-    }
+    private readonly IMatchingService _matchingService = matchingService;
+    private readonly ILogger<TaskQueueController> _logger = logger;
 
     /// <summary>
     /// Poll for a task from the specified task queue (long poll).

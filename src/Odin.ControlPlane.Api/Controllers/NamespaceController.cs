@@ -12,18 +12,12 @@ namespace Odin.ControlPlane.Api.Controllers;
 [ApiController]
 [Route("api/v1/namespaces")]
 [Produces("application/json")]
-public sealed class NamespaceController : ControllerBase
+public sealed class NamespaceController(
+    INamespaceRepository namespaceRepository,
+    ILogger<NamespaceController> logger) : ControllerBase
 {
-    private readonly INamespaceRepository _namespaceRepository;
-    private readonly ILogger<NamespaceController> _logger;
-
-    public NamespaceController(
-        INamespaceRepository namespaceRepository,
-        ILogger<NamespaceController> logger)
-    {
-        _namespaceRepository = namespaceRepository;
-        _logger = logger;
-    }
+    private readonly INamespaceRepository _namespaceRepository = namespaceRepository;
+    private readonly ILogger<NamespaceController> _logger = logger;
 
     /// <summary>
     /// Create a new namespace.

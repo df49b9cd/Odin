@@ -11,18 +11,12 @@ namespace Odin.ControlPlane.Api.Controllers;
 [ApiController]
 [Route("api/v1/workflows/{workflowId}/history")]
 [Produces("application/json")]
-public sealed class HistoryController : ControllerBase
+public sealed class HistoryController(
+    IHistoryService historyService,
+    ILogger<HistoryController> logger) : ControllerBase
 {
-    private readonly IHistoryService _historyService;
-    private readonly ILogger<HistoryController> _logger;
-
-    public HistoryController(
-        IHistoryService historyService,
-        ILogger<HistoryController> logger)
-    {
-        _historyService = historyService;
-        _logger = logger;
-    }
+    private readonly IHistoryService _historyService = historyService;
+    private readonly ILogger<HistoryController> _logger = logger;
 
     /// <summary>
     /// Get workflow execution history with pagination.

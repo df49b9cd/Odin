@@ -12,18 +12,12 @@ namespace Odin.ExecutionEngine.Matching;
 /// Matching service manages task queue operations and worker polling.
 /// Implements partition-aware task distribution with lease-based delivery.
 /// </summary>
-public sealed class MatchingService : IMatchingService
+public sealed class MatchingService(
+    ITaskQueueRepository taskQueueRepository,
+    ILogger<MatchingService> logger) : IMatchingService
 {
-    private readonly ITaskQueueRepository _taskQueueRepository;
-    private readonly ILogger<MatchingService> _logger;
-
-    public MatchingService(
-        ITaskQueueRepository taskQueueRepository,
-        ILogger<MatchingService> logger)
-    {
-        _taskQueueRepository = taskQueueRepository;
-        _logger = logger;
-    }
+    private readonly ITaskQueueRepository _taskQueueRepository = taskQueueRepository;
+    private readonly ILogger<MatchingService> _logger = logger;
 
     /// <summary>
     /// Enqueues a workflow or activity task.

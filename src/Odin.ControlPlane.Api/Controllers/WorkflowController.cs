@@ -14,24 +14,16 @@ namespace Odin.ControlPlane.Api.Controllers;
 [ApiController]
 [Route("api/v1/workflows")]
 [Produces("application/json")]
-public sealed class WorkflowController : ControllerBase
+public sealed class WorkflowController(
+    IWorkflowExecutionRepository workflowRepository,
+    IHistoryService historyService,
+    ITaskQueueRepository taskQueueRepository,
+    ILogger<WorkflowController> logger) : ControllerBase
 {
-    private readonly IWorkflowExecutionRepository _workflowRepository;
-    private readonly IHistoryService _historyService;
-    private readonly ITaskQueueRepository _taskQueueRepository;
-    private readonly ILogger<WorkflowController> _logger;
-
-    public WorkflowController(
-        IWorkflowExecutionRepository workflowRepository,
-        IHistoryService historyService,
-        ITaskQueueRepository taskQueueRepository,
-        ILogger<WorkflowController> logger)
-    {
-        _workflowRepository = workflowRepository;
-        _historyService = historyService;
-        _taskQueueRepository = taskQueueRepository;
-        _logger = logger;
-    }
+    private readonly IWorkflowExecutionRepository _workflowRepository = workflowRepository;
+    private readonly IHistoryService _historyService = historyService;
+    private readonly ITaskQueueRepository _taskQueueRepository = taskQueueRepository;
+    private readonly ILogger<WorkflowController> _logger = logger;
 
     /// <summary>
     /// Start a new workflow execution.
