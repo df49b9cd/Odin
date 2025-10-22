@@ -8,7 +8,6 @@
 
   <ItemGroup>
     <PackageReference Include="Hugo" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
 </Project>

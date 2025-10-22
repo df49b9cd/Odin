@@ -280,7 +280,6 @@ public sealed class TaskQueueController : ControllerBase
     /// Get task queue statistics.
     /// </summary>
     /// <param name="queueName">Task queue name</param>
-    /// <param name="namespaceId">Namespace ID (default: "default")</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Queue statistics</returns>
     [HttpGet("queues/{queueName}/stats")]
