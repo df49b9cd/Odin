@@ -19,7 +19,7 @@ CREATE INDEX IF NOT EXISTS idx_task_queues_partition ON task_queues(namespace_id
 CREATE INDEX IF NOT EXISTS idx_task_queues_expiry ON task_queues(expiry_at) WHERE expiry_at IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_task_queues_workflow ON task_queues(namespace_id, workflow_id, run_id);
 CREATE INDEX IF NOT EXISTS idx_task_queues_pending ON task_queues(namespace_id, task_queue_name, task_queue_type, scheduled_at)
-    WHERE expiry_at IS NULL OR expiry_at > NOW();
+    WHERE expiry_at IS NULL;
 
 COMMENT ON TABLE task_queues IS 'Pending workflow and activity tasks awaiting worker poll';
 COMMENT ON COLUMN task_queues.task_queue_name IS 'Name of the task queue for worker routing';

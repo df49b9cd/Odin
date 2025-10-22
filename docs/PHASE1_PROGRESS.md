@@ -330,7 +330,7 @@ src/Odin.Persistence/
 - [x] Implement TaskQueueRepository with lease heartbeats
 - [x] Implement VisibilityRepository with advanced search
 - [x] Harden ShardRepository lease renewal/release paths with integration tests
-- [ ] Add repository unit tests (in-memory) and PostgreSQL integration tests for Namespace/Workflow/History/TaskQueue/Visibility flows
+- [x] Add repository unit tests (in-memory) and PostgreSQL integration tests for Namespace/Workflow/History/TaskQueue/Visibility flows
 - [ ] Wire PostgreSQL functions (`get_next_task`, cleanup routines) through TaskQueueRepository logic
 
 ### Priority 2: Worker SDK Core

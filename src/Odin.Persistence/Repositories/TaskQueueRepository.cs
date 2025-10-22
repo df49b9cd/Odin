@@ -157,15 +157,17 @@ SELECT
     tq.task_data::text AS task_data,
     tq.partition_hash
 FROM task_queues tq
-LEFT JOIN task_queue_leases tql
-    ON tql.namespace_id = tq.namespace_id
-   AND tql.task_queue_name = tq.task_queue_name
-   AND tql.task_queue_type = tq.task_queue_type
-   AND tql.task_id = tq.task_id
-   AND tql.lease_expires_at > NOW()
 WHERE tq.task_queue_name = @QueueName
   AND (tq.expiry_at IS NULL OR tq.expiry_at > NOW())
-  AND tql.lease_id IS NULL
+  AND NOT EXISTS (
+        SELECT 1
+        FROM task_queue_leases tql
+        WHERE tql.namespace_id = tq.namespace_id
+          AND tql.task_queue_name = tq.task_queue_name
+          AND tql.task_queue_type = tq.task_queue_type
+          AND tql.task_id = tq.task_id
+          AND tql.lease_expires_at > NOW()
+    )
 ORDER BY tq.scheduled_at
 LIMIT 1
 FOR UPDATE SKIP LOCKED";
@@ -671,9 +673,9 @@ SELECT COUNT(*)::INT FROM purged";
         {
             LeaseId = leaseRow.LeaseId,
             WorkerIdentity = leaseRow.WorkerIdentity,
-            LeasedAt = leaseRow.LeasedAt,
-            LeaseExpiresAt = leaseRow.LeaseExpiresAt,
-            HeartbeatAt = leaseRow.HeartbeatAt,
+            LeasedAt = ToUtcDateTimeOffset(leaseRow.LeasedAt),
+            LeaseExpiresAt = ToUtcDateTimeOffset(leaseRow.LeaseExpiresAt),
+            HeartbeatAt = ToUtcDateTimeOffset(leaseRow.HeartbeatAt),
             AttemptCount = leaseRow.AttemptCount,
             Task = ToTaskQueueItem(taskRow)
         };
@@ -688,8 +690,8 @@ SELECT COUNT(*)::INT FROM purged";
             TaskId = row.TaskId,
             WorkflowId = row.WorkflowId,
             RunId = row.RunId,
-            ScheduledAt = row.ScheduledAt,
-            ExpiryAt = row.ExpiryAt,
+            ScheduledAt = ToUtcDateTimeOffset(row.ScheduledAt),
+            ExpiryAt = row.ExpiryAt.HasValue ? ToUtcDateTimeOffset(row.ExpiryAt.Value) : (DateTimeOffset?)null,
             TaskData = JsonDocument.Parse(row.TaskData),
             PartitionHash = row.PartitionHash
         };
@@ -707,6 +709,14 @@ SELECT COUNT(*)::INT FROM purged";
             ? TaskQueueType.Activity
             : TaskQueueType.Workflow;
 
+    private static DateTimeOffset ToUtcDateTimeOffset(DateTime value)
+    {
+        var specified = value.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(value, DateTimeKind.Utc)
+            : value.ToUniversalTime();
+        return new DateTimeOffset(specified);
+    }
+
     private sealed record TaskQueueRow(
         Guid NamespaceId,
         string TaskQueueName,
@@ -714,16 +724,16 @@ SELECT COUNT(*)::INT FROM purged";
         long TaskId,
         string WorkflowId,
         Guid RunId,
-        DateTimeOffset ScheduledAt,
-        DateTimeOffset? ExpiryAt,
+        DateTime ScheduledAt,
+        DateTime? ExpiryAt,
         string TaskData,
         int PartitionHash);
 
     private sealed record TaskQueueLeaseRow(
         Guid LeaseId,
-        DateTimeOffset LeasedAt,
-        DateTimeOffset LeaseExpiresAt,
-        DateTimeOffset HeartbeatAt,
+        DateTime LeasedAt,
+        DateTime LeaseExpiresAt,
+        DateTime HeartbeatAt,
         int AttemptCount,
         string WorkerIdentity);
 

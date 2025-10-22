@@ -27,7 +27,10 @@ public sealed class PostgresFixture : IAsyncLifetime
     {
         "001_namespaces.up.sql",
         "002_history_shards.up.sql",
-        "003_workflow_executions.up.sql"
+        "003_workflow_executions.up.sql",
+        "004_history_events.up.sql",
+        "005_task_queues.up.sql",
+        "006_visibility_records.up.sql"
     };
 
     private readonly PostgreSqlContainer _container;
@@ -73,6 +76,11 @@ public sealed class PostgresFixture : IAsyncLifetime
         await using var connection = new NpgsqlConnection(ConnectionString);
         await connection.OpenAsync();
 
+        await connection.ExecuteAsync("TRUNCATE TABLE task_queue_leases CASCADE;");
+        await connection.ExecuteAsync("TRUNCATE TABLE task_queues CASCADE;");
+        await connection.ExecuteAsync("TRUNCATE TABLE history_events CASCADE;");
+        await connection.ExecuteAsync("TRUNCATE TABLE workflow_tags CASCADE;");
+        await connection.ExecuteAsync("TRUNCATE TABLE visibility_records CASCADE;");
         await connection.ExecuteAsync("TRUNCATE TABLE workflow_executions CASCADE;");
         await connection.ExecuteAsync("TRUNCATE TABLE namespaces CASCADE;");
         await connection.ExecuteAsync("TRUNCATE TABLE history_shards CASCADE;");
@@ -120,6 +128,34 @@ RETURNING namespace_id;
         return new ShardRepository(
             CreateConnectionFactory(),
             NullLogger<ShardRepository>.Instance);
+    }
+
+    public NamespaceRepository CreateNamespaceRepository()
+    {
+        return new NamespaceRepository(
+            CreateConnectionFactory(),
+            NullLogger<NamespaceRepository>.Instance);
+    }
+
+    public HistoryRepository CreateHistoryRepository()
+    {
+        return new HistoryRepository(
+            CreateConnectionFactory(),
+            NullLogger<HistoryRepository>.Instance);
+    }
+
+    public TaskQueueRepository CreateTaskQueueRepository()
+    {
+        return new TaskQueueRepository(
+            CreateConnectionFactory(),
+            NullLogger<TaskQueueRepository>.Instance);
+    }
+
+    public VisibilityRepository CreateVisibilityRepository()
+    {
+        return new VisibilityRepository(
+            CreateConnectionFactory(),
+            NullLogger<VisibilityRepository>.Instance);
     }
 
     public void EnsureDockerIsRunning()

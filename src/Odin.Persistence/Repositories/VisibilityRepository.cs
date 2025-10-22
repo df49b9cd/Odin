@@ -696,6 +696,9 @@ LIMIT @Limit OFFSET @Offset";
             };
         }
 
+        var start = ToUtcDateTimeOffset(row.StartTime);
+        var close = row.CloseTime.HasValue ? ToUtcDateTimeOffset(row.CloseTime.Value) : (DateTimeOffset?)null;
+
         return new WorkflowExecutionInfo
         {
             WorkflowId = row.WorkflowId,
@@ -703,14 +706,22 @@ LIMIT @Limit OFFSET @Offset";
             WorkflowType = row.WorkflowType,
             TaskQueue = row.TaskQueue,
             Status = status,
-            StartTime = row.StartTime,
-            CloseTime = row.CloseTime,
+            StartTime = start,
+            CloseTime = close,
             ExecutionDuration = duration,
             HistoryLength = row.HistoryLength,
             ParentExecution = parent,
             Memo = ParseDictionary(row.Memo),
             SearchAttributes = ParseDictionary(row.SearchAttributes)
         };
+    }
+
+    private static DateTimeOffset ToUtcDateTimeOffset(DateTime value)
+    {
+        var specified = value.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(value, DateTimeKind.Utc)
+            : value.ToUniversalTime();
+        return new DateTimeOffset(specified);
     }
 
     private static string BuildQueryFilter(string? query, out DynamicParameters parameters)
@@ -1015,9 +1026,9 @@ LIMIT @Limit OFFSET @Offset";
         string WorkflowType,
         string TaskQueue,
         string WorkflowState,
-        DateTimeOffset StartTime,
-        DateTimeOffset ExecutionTime,
-        DateTimeOffset? CloseTime,
+        DateTime StartTime,
+        DateTime ExecutionTime,
+        DateTime? CloseTime,
         string Status,
         long HistoryLength,
         long? ExecutionDurationMs,
