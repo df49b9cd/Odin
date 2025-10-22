@@ -1,18 +1,18 @@
 using System;
-using System.Diagnostics;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
 using Dapper;
 using Docker.DotNet;
+using DotNet.Testcontainers.Configurations;
 using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 using Odin.Persistence;
 using Odin.Persistence.Repositories;
 using Testcontainers.PostgreSql;
 using Xunit;
-using DotNet.Testcontainers.Configurations;
 
 namespace Odin.Integration.Tests;
 
