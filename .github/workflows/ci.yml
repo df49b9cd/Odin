@@ -40,10 +40,16 @@ jobs:
     - name: Build
       run: dotnet build --no-restore --configuration Release
     
-    - name: Test
-      run: dotnet test --no-build --configuration Release --verbosity normal --collect:"XPlat Code Coverage"
+    - name: Test (unit)
+      run: |
+        dotnet test --no-build --configuration Release --verbosity normal --collect:"XPlat Code Coverage" tests/Odin.Core.Tests/Odin.Core.Tests.csproj
+        dotnet test --no-build --configuration Release --verbosity normal tests/Odin.ExecutionEngine.Tests/Odin.ExecutionEngine.Tests.csproj
+        dotnet test --no-build --configuration Release --verbosity normal tests/Odin.Sdk.Tests/Odin.Sdk.Tests.csproj
+
+    - name: Test (integration)
+      run: dotnet test --no-build --configuration Release --verbosity normal tests/Odin.Integration.Tests/Odin.Integration.Tests.csproj
       env:
-        HUGO_ORCHESTRATOR_DB_CONNECTION: Server=localhost;Database=orchestrator_test;Username=odin;Password=test_password
+        DOCKER_HOST: unix:///var/run/docker.sock
     
     - name: Upload coverage reports
       uses: codecov/codecov-action@v3
