@@ -1,9 +1,11 @@
+using System.Collections.Generic;
 using Hugo;
 using Microsoft.Extensions.Logging;
 using Odin.Contracts;
 using Odin.Core;
 using Odin.Persistence.Interfaces;
 using static Hugo.Go;
+using static Hugo.Functional;
 
 namespace Odin.ExecutionEngine.History;
 
@@ -36,33 +38,16 @@ public sealed class HistoryService(
 
         try
         {
-            // Calculate shard for this workflow
             var shardId = HashingUtilities.CalculateShardId(request.WorkflowId, 512);
+            var ownershipResult = await Result.Ok(Unit.Value)
+                .TapAsync((_, ct) => VerifyShardOwnershipAsync(shardId, ct), cancellationToken);
 
-            // Verify shard ownership (optional - for distributed deployments)
-            var leaseResult = await _shardRepository.GetLeaseAsync(shardId, cancellationToken);
-            if (leaseResult.IsFailure)
+            var validationResult = ownershipResult.Then(_ => ValidateEventSequence(request, _logger));
+            if (validationResult.IsFailure)
             {
-                _logger.LogWarning(
-                    "Could not verify shard ownership for shard {ShardId}, proceeding anyway",
-                    shardId);
+                return validationResult;
             }
 
-            // Validate event sequence (events must be sequential)
-            var firstEventId = request.Events[0].EventId;
-            for (int i = 0; i < request.Events.Count; i++)
-            {
-                if (request.Events[i].EventId != firstEventId + i)
-                {
-                    _logger.LogError(
-                        "Event sequence violation: expected event ID {ExpectedId}, got {ActualId}",
-                        firstEventId + i, request.Events[i].EventId);
-                    return Result.Fail<Unit>(
-                        Error.From("Event sequence must be sequential", OdinErrorCodes.HistoryEventError));
-                }
-            }
-
-            // Append events to repository
             var appendResult = await _historyRepository.AppendEventsAsync(
                 request.NamespaceId,
                 request.WorkflowId,
@@ -70,20 +55,20 @@ public sealed class HistoryService(
                 request.Events,
                 cancellationToken);
 
-            if (appendResult.IsFailure)
-            {
-                _logger.LogError(
+            return appendResult
+                .TapError(error => _logger.LogError(
                     "Failed to append {Count} events for workflow {WorkflowId}/{RunId}: {Error}",
-                    request.Events.Count, request.WorkflowId, request.RunId, appendResult.Error?.Message);
-                return appendResult;
-            }
-
-            _logger.LogDebug(
-                "Appended {Count} events to workflow {WorkflowId}/{RunId}, event IDs {FirstEventId}-{LastEventId}",
-                request.Events.Count, request.WorkflowId, request.RunId,
-                request.Events[0].EventId, request.Events[^1].EventId);
-
-            return Result.Ok(Unit.Value);
+                    request.Events.Count,
+                    request.WorkflowId,
+                    request.RunId,
+                    error.Message))
+                .Tap(_ => _logger.LogDebug(
+                    "Appended {Count} events to workflow {WorkflowId}/{RunId}, event IDs {FirstEventId}-{LastEventId}",
+                    request.Events.Count,
+                    request.WorkflowId,
+                    request.RunId,
+                    request.Events[0].EventId,
+                    request.Events[^1].EventId));
         }
         catch (Exception ex)
         {
@@ -112,25 +97,24 @@ public sealed class HistoryService(
                 request.MaxEvents,
                 cancellationToken);
 
-            if (historyResult.IsFailure)
-            {
-                return Result.Fail<GetHistoryResponse>(historyResult.Error!);
-            }
-
-            var response = new GetHistoryResponse
-            {
-                NamespaceId = request.NamespaceId,
-                WorkflowId = request.WorkflowId,
-                RunId = request.RunId,
-                Events = historyResult.Value.Events,
-                FirstEventId = historyResult.Value.FirstEventId,
-                LastEventId = historyResult.Value.LastEventId,
-                NextPageToken = historyResult.Value.Events.Count >= request.MaxEvents
-                    ? (historyResult.Value.LastEventId + 1).ToString()
-                    : null
-            };
-
-            return Result.Ok(response);
+            return historyResult
+                .TapError(error => _logger.LogError(
+                    "Failed to get history for workflow {WorkflowId}/{RunId}: {Error}",
+                    request.WorkflowId,
+                    request.RunId,
+                    error.Message))
+                .Map(history => new GetHistoryResponse
+                {
+                    NamespaceId = request.NamespaceId,
+                    WorkflowId = request.WorkflowId,
+                    RunId = request.RunId,
+                    Events = history.Events,
+                    FirstEventId = history.FirstEventId,
+                    LastEventId = history.LastEventId,
+                    NextPageToken = history.Events.Count >= request.MaxEvents
+                        ? (history.LastEventId + 1).ToString()
+                        : null
+                });
         }
         catch (Exception ex)
         {
@@ -159,19 +143,22 @@ public sealed class HistoryService(
                 runId,
                 cancellationToken);
 
-            if (validationResult.IsFailure)
-            {
-                return validationResult;
-            }
-
-            if (!validationResult.Value)
-            {
-                _logger.LogWarning(
-                    "History validation failed for workflow {WorkflowId}/{RunId} - sequence gaps detected",
-                    workflowId, runId);
-            }
-
-            return validationResult;
+            return validationResult
+                .TapError(error => _logger.LogError(
+                    "Failed to validate history for workflow {WorkflowId}/{RunId}: {Error}",
+                    workflowId,
+                    runId,
+                    error.Message))
+                .Tap(isValid =>
+                {
+                    if (!isValid)
+                    {
+                        _logger.LogWarning(
+                            "History validation failed for workflow {WorkflowId}/{RunId} - sequence gaps detected",
+                            workflowId,
+                            runId);
+                    }
+                });
         }
         catch (Exception ex)
         {
@@ -181,6 +168,62 @@ public sealed class HistoryService(
             return Result.Fail<bool>(
                 Error.From($"Validation failed: {ex.Message}", OdinErrorCodes.PersistenceError));
         }
+    }
+
+    private async Task VerifyShardOwnershipAsync(
+        int shardId,
+        CancellationToken cancellationToken)
+    {
+        var leaseResult = await _shardRepository.GetLeaseAsync(shardId, cancellationToken);
+        if (leaseResult.IsFailure)
+        {
+            _logger.LogWarning(
+                "Could not verify shard ownership for shard {ShardId}, proceeding anyway: {Error}",
+                shardId,
+                leaseResult.Error?.Message);
+        }
+    }
+
+    private static Result<Unit> ValidateEventSequence(
+        AppendHistoryEventsRequest request,
+        ILogger logger)
+    {
+        var events = request.Events;
+        if (events.Count == 0)
+        {
+            return Result.Ok(Unit.Value);
+        }
+
+        var expected = events[0].EventId;
+        for (var index = 0; index < events.Count; index++, expected++)
+        {
+            var actual = events[index].EventId;
+            if (actual == expected)
+            {
+                continue;
+            }
+
+            logger.LogError(
+                "Event sequence violation for workflow {WorkflowId}/{RunId}: expected event ID {ExpectedId}, got {ActualId}",
+                request.WorkflowId,
+                request.RunId,
+                expected,
+                actual);
+
+            var metadata = new Dictionary<string, object?>
+            {
+                ["expectedEventId"] = expected,
+                ["actualEventId"] = actual,
+                ["workflowId"] = request.WorkflowId,
+                ["runId"] = request.RunId
+            };
+
+            return Result.Fail<Unit>(
+                Error.From("Event sequence must be sequential.", OdinErrorCodes.HistoryEventError)
+                    .WithMetadata(metadata));
+        }
+
+        return Result.Ok(Unit.Value);
     }
 }
 

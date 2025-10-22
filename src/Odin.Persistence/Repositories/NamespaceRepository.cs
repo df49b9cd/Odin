@@ -1,3 +1,4 @@
+using System;
 using System.Data;
 using System.Text.Json;
 using Dapper;
@@ -7,6 +8,7 @@ using Odin.Contracts;
 using Odin.Core;
 using Odin.Persistence.Interfaces;
 using static Hugo.Go;
+using static Hugo.Functional;
 
 namespace Odin.Persistence.Repositories;
 
@@ -26,16 +28,16 @@ public sealed class NamespaceRepository(
         CancellationToken cancellationToken = default)
     {
         var connectionResult = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-        if (connectionResult.IsFailure)
-        {
-            return Result.Fail<Namespace>(connectionResult.Error!);
-        }
 
-        using var connection = connectionResult.Value;
-
-        try
-        {
-            var sql = @"
+        return await connectionResult
+            .TapError(error => _logger.LogError(
+                "Failed to open connection when creating namespace {NamespaceName}: {Error}",
+                request.NamespaceName,
+                error.Message))
+            .ThenAsync(async (connection, ct) =>
+            {
+                using var dbConnection = connection;
+                var sql = @"
                 INSERT INTO namespaces (
                     namespace_id, namespace_name, description, owner_id,
                     retention_days, history_archival_enabled, visibility_archival_enabled,
@@ -49,33 +51,40 @@ public sealed class NamespaceRepository(
                           retention_days, history_archival_enabled, visibility_archival_enabled,
                           cluster_config, is_global_namespace, data, status::text, created_at, updated_at";
 
-            var result = await connection.QuerySingleAsync<NamespaceRow>(sql, new
-            {
-                request.NamespaceName,
-                request.Description,
-                request.OwnerId,
-                request.RetentionDays,
-                request.HistoryArchivalEnabled,
-                request.VisibilityArchivalEnabled
-            });
+                try
+                {
+                    var row = await dbConnection.QuerySingleAsync<NamespaceRow>(sql, new
+                    {
+                        request.NamespaceName,
+                        request.Description,
+                        request.OwnerId,
+                        request.RetentionDays,
+                        request.HistoryArchivalEnabled,
+                        request.VisibilityArchivalEnabled
+                    });
 
-            _logger.LogInformation("Created namespace {NamespaceName} with ID {NamespaceId}",
-                request.NamespaceName, result.NamespaceId);
+                    _logger.LogInformation(
+                        "Created namespace {NamespaceName} with ID {NamespaceId}",
+                        request.NamespaceName,
+                        row.NamespaceId);
 
-            return Result.Ok(result.ToNamespace());
-        }
-        catch (Exception ex) when (ex.Message.Contains("duplicate key"))
-        {
-            _logger.LogWarning("Namespace {NamespaceName} already exists", request.NamespaceName);
-            return Result.Fail<Namespace>(
-                OdinErrors.NamespaceAlreadyExists(request.NamespaceName));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to create namespace {NamespaceName}", request.NamespaceName);
-            return Result.Fail<Namespace>(
-                Error.From($"Database error: {ex.Message}", OdinErrorCodes.PersistenceError));
-        }
+                    return Result.Ok(row.ToNamespace());
+                }
+                catch (Exception ex) when (ex.Message.Contains("duplicate key", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning(
+                        "Namespace {NamespaceName} already exists",
+                        request.NamespaceName);
+                    return Result.Fail<Namespace>(
+                        OdinErrors.NamespaceAlreadyExists(request.NamespaceName));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to create namespace {NamespaceName}", request.NamespaceName);
+                    return Result.Fail<Namespace>(
+                        Error.From($"Database error: {ex.Message}", OdinErrorCodes.PersistenceError));
+                }
+            }, cancellationToken);
     }
 
     public async Task<Result<Namespace>> GetByNameAsync(
@@ -83,40 +92,44 @@ public sealed class NamespaceRepository(
         CancellationToken cancellationToken = default)
     {
         var connectionResult = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-        if (connectionResult.IsFailure)
-        {
-            return Result.Fail<Namespace>(connectionResult.Error!);
-        }
 
-        using var connection = connectionResult.Value;
-
-        try
-        {
-            var sql = @"
+        return await connectionResult
+            .TapError(error => _logger.LogError(
+                "Failed to open connection when fetching namespace {NamespaceName}: {Error}",
+                namespaceName,
+                error.Message))
+            .ThenAsync(async (connection, ct) =>
+            {
+                using var dbConnection = connection;
+                var sql = @"
                 SELECT namespace_id, namespace_name, description, owner_id,
                        retention_days, history_archival_enabled, visibility_archival_enabled,
                        cluster_config, is_global_namespace, data, status::text, created_at, updated_at
                 FROM namespaces
                 WHERE namespace_name = @Name AND status != 'deleted'";
 
-            var result = await connection.QuerySingleOrDefaultAsync<NamespaceRow>(
-                sql, new { Name = namespaceName });
+                try
+                {
+                    var row = await dbConnection.QuerySingleOrDefaultAsync<NamespaceRow>(
+                        sql,
+                        new { Name = namespaceName });
 
-            if (result == null)
-            {
-                _logger.LogWarning("Namespace {NamespaceName} not found", namespaceName);
-                return Result.Fail<Namespace>(
-                    OdinErrors.NamespaceNotFound(namespaceName));
-            }
+                    if (row is null)
+                    {
+                        _logger.LogWarning("Namespace {NamespaceName} not found", namespaceName);
+                        return Result.Fail<Namespace>(
+                            OdinErrors.NamespaceNotFound(namespaceName));
+                    }
 
-            return Result.Ok(result.ToNamespace());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to get namespace {NamespaceName}", namespaceName);
-            return Result.Fail<Namespace>(
-                Error.From($"Database error: {ex.Message}", OdinErrorCodes.PersistenceError));
-        }
+                    return Result.Ok(row.ToNamespace());
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to get namespace {NamespaceName}", namespaceName);
+                    return Result.Fail<Namespace>(
+                        Error.From($"Database error: {ex.Message}", OdinErrorCodes.PersistenceError));
+                }
+            }, cancellationToken);
     }
 
     public async Task<Result<Namespace>> GetByIdAsync(

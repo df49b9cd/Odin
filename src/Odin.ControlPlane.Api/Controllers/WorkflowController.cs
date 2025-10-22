@@ -1,9 +1,12 @@
+using System.Collections.Generic;
 using System.Text.Json;
 using Hugo;
 using Microsoft.AspNetCore.Mvc;
+using Odin.Core;
 using Odin.ExecutionEngine.History;
 using Odin.Persistence.Interfaces;
 using static Hugo.Go;
+using static Hugo.Functional;
 using WorkflowExecutionModel = Odin.Contracts.WorkflowExecution;
 
 namespace Odin.ControlPlane.Api.Controllers;
@@ -156,26 +159,17 @@ public sealed class WorkflowController(
     {
         namespaceId ??= "default";
 
-        Result<WorkflowExecutionModel> result;
-        if (!string.IsNullOrEmpty(runId))
-        {
-            result = await _workflowRepository.GetAsync(namespaceId, id, runId, cancellationToken);
-        }
-        else
-        {
-            result = await _workflowRepository.GetCurrentAsync(namespaceId, id, cancellationToken);
-        }
+        var result = string.IsNullOrEmpty(runId)
+            ? await _workflowRepository.GetCurrentAsync(namespaceId, id, cancellationToken)
+            : await _workflowRepository.GetAsync(namespaceId, id, runId, cancellationToken);
 
-        if (result.IsFailure)
-        {
-            return NotFound(new ErrorResponse
+        return Functional.Finally(result,
+            workflow => (IActionResult)Ok(workflow),
+            error => NotFound(new ErrorResponse
             {
-                Message = $"Workflow '{id}' not found",
-                Code = "WORKFLOW_NOT_FOUND"
-            });
-        }
-
-        return Ok(result.Value);
+                Message = error.Message ?? $"Workflow '{id}' not found",
+                Code = error.Code ?? OdinErrorCodes.WorkflowNotFound
+            }));
     }
 
     /// <summary>
@@ -201,26 +195,23 @@ public sealed class WorkflowController(
 
         var namespaceId = request.NamespaceId ?? "default";
 
-        // Get current workflow execution
-        var getResult = await _workflowRepository.GetCurrentAsync(namespaceId, id, cancellationToken);
-        if (getResult.IsFailure)
-        {
-            return NotFound(new ErrorResponse
+        var fetchedWorkflow = await _workflowRepository.GetCurrentAsync(namespaceId, id, cancellationToken);
+        var workflowResult = fetchedWorkflow.Ensure(
+            workflow => workflow.WorkflowState == Odin.Contracts.WorkflowState.Running,
+            workflow =>
             {
-                Message = $"Workflow '{id}' not found",
-                Code = "WORKFLOW_NOT_FOUND"
-            });
-        }
+                var metadata = new Dictionary<string, object?>
+                {
+                    ["workflowId"] = id,
+                    ["namespaceId"] = namespaceId,
+                    ["currentState"] = workflow.WorkflowState.ToString()
+                };
 
-        var workflow = getResult.Value;
-        if (workflow.WorkflowState != Odin.Contracts.WorkflowState.Running)
-        {
-            return BadRequest(new ErrorResponse
-            {
-                Message = $"Workflow is not running (current status: {workflow.WorkflowState})",
-                Code = "INVALID_WORKFLOW_STATE"
+                return Error.From(
+                        $"Workflow is not running (current status: {workflow.WorkflowState})",
+                        "INVALID_WORKFLOW_STATE")
+                    .WithMetadata(metadata);
             });
-        }
 
         // Append WorkflowExecutionSignaled event
         // TODO: Phase 2 - Implement signal event append
@@ -243,7 +234,30 @@ public sealed class WorkflowController(
         _logger.LogInformation("Signaled workflow {WorkflowId} with signal {SignalName}",
             id, request.SignalName);
 
-        return Accepted();
+        return Functional.Finally(workflowResult,
+            _ =>
+            {
+                _logger.LogInformation("Signal {SignalName} accepted for workflow {WorkflowId}", request.SignalName, id);
+                return (IActionResult)Accepted();
+            },
+            error => (error.Code ?? string.Empty) switch
+            {
+                OdinErrorCodes.WorkflowNotFound => NotFound(new ErrorResponse
+                {
+                    Message = error.Message ?? $"Workflow '{id}' not found",
+                    Code = OdinErrorCodes.WorkflowNotFound
+                }),
+                "INVALID_WORKFLOW_STATE" => BadRequest(new ErrorResponse
+                {
+                    Message = error.Message ?? "Workflow is not in a running state",
+                    Code = "INVALID_WORKFLOW_STATE"
+                }),
+                _ => BadRequest(new ErrorResponse
+                {
+                    Message = error.Message ?? "Signal request failed",
+                    Code = error.Code ?? "SIGNAL_FAILED"
+                })
+            });
     }
 
     /// <summary>
