@@ -321,7 +321,7 @@ src/Odin.Persistence/
 
 ### Priority 0: Core Utility Follow-up
 
-- [ ] Add unit coverage for `GoHelpers`, `HashingUtilities`, and `JsonOptions`
+- [x] Add unit coverage for `GoHelpers`, `HashingUtilities`, and `JsonOptions`
 
 ### Priority 1: Complete Persistence Implementation
 

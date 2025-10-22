@@ -45,6 +45,25 @@ public class GoHelpersTests
     }
 
     [Fact]
+    public async Task FanOutAsync_WhenOperationsNull_ThrowsArgumentNullException()
+    {
+        await Should.ThrowAsync<ArgumentNullException>(async () => await GoHelpers.FanOutAsync<int>(null!));
+    }
+
+    [Fact]
+    public async Task FanOutAsync_WhenOperationsContainNull_ThrowsArgumentNullException()
+    {
+        var operations = new List<Func<CancellationToken, Task<Result<int>>>>
+        {
+            _ => Task.FromResult(Result.Ok(1)),
+            null!
+        };
+
+        await Should.ThrowAsync<ArgumentNullException>(async () =>
+            await GoHelpers.FanOutAsync(operations, cancellationToken: TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task RaceAsync_ReturnsFirstSuccessfulResult()
     {
         var operations = new List<Func<CancellationToken, Task<Result<string>>>>
@@ -68,6 +87,40 @@ public class GoHelpersTests
     }
 
     [Fact]
+    public async Task RaceAsync_WhenOperationsNull_ThrowsArgumentNullException()
+    {
+        await Should.ThrowAsync<ArgumentNullException>(async () => await GoHelpers.RaceAsync<int>(null!));
+    }
+
+    [Fact]
+    public async Task RaceAsync_WhenOperationsContainNull_ThrowsArgumentNullException()
+    {
+        var operations = new List<Func<CancellationToken, Task<Result<string>>>>
+        {
+            _ => Task.FromResult(Result.Ok("winner")),
+            null!
+        };
+
+        await Should.ThrowAsync<ArgumentNullException>(async () =>
+            await GoHelpers.RaceAsync(operations, cancellationToken: TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task RaceAsync_WhenAllOperationsFail_ReturnsFailure()
+    {
+        var operations = new List<Func<CancellationToken, Task<Result<string>>>>
+        {
+            _ => Task.FromResult(Result.Fail<string>(Error.From("first failure", "FAIL_1"))),
+            _ => Task.FromResult(Result.Fail<string>(Error.From("second failure", "FAIL_2")))
+        };
+
+        var result = await GoHelpers.RaceAsync(operations, cancellationToken: TestContext.Current.CancellationToken);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldNotBeNull();
+    }
+
+    [Fact]
     public async Task WithTimeoutAsync_WhenOperationExceedsTimeout_ReturnsTimeoutError()
     {
         var result = await GoHelpers.WithTimeoutAsync(
@@ -82,6 +135,18 @@ public class GoHelpersTests
         result.IsFailure.ShouldBeTrue();
         result.Error.ShouldNotBeNull();
         result.Error.Code.ShouldBe(OdinErrorCodes.Timeout);
+    }
+
+    [Fact]
+    public async Task WithTimeoutAsync_WhenOperationCompletesBeforeTimeout_ReturnsResult()
+    {
+        var result = await GoHelpers.WithTimeoutAsync(
+            ct => Task.FromResult(Result.Ok("immediate-success")),
+            TimeSpan.FromMilliseconds(250),
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.ShouldBe("immediate-success");
     }
 
     [Fact]
@@ -131,5 +196,35 @@ public class GoHelpersTests
         result.Error.ShouldNotBeNull();
         result.Error.Code.ShouldBe("RETRY");
         attempts.ShouldBe(new[] { 1, 2, 3 });
+    }
+
+    [Fact]
+    public async Task RetryAsync_WhenOperationNull_ThrowsArgumentNullException()
+    {
+        await Should.ThrowAsync<ArgumentNullException>(async () => await GoHelpers.RetryAsync<int>(null!));
+    }
+
+    [Fact]
+    public async Task RetryAsync_WhenMaxAttemptsInvalid_ThrowsArgumentOutOfRangeException()
+    {
+        await Should.ThrowAsync<ArgumentOutOfRangeException>(async () =>
+            await GoHelpers.RetryAsync(
+                (_, _) => Task.FromResult(Result.Ok(1)),
+                maxAttempts: 0,
+                cancellationToken: TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task RetryAsync_WhenOperationThrows_ReturnsFailure()
+    {
+        var result = await GoHelpers.RetryAsync(
+            (_, _) => Task.FromException<Result<int>>(new InvalidOperationException("boom")),
+            maxAttempts: 1,
+            logger: NullLogger.Instance,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldNotBeNull();
+        result.Error.Message.ShouldContain("boom");
     }
 }
