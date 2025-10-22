@@ -20,7 +20,8 @@ Odin provides durable workflow execution with history replay and distributed tas
 
 ## Quick Links
 
-- [Getting Started Guide](docs/getting-started.md)
+- [Documentation Index](docs/README.md)
+- [Getting Started](docs/getting-started.md)
 - [Architecture Overview](docs/architecture/README.md)
 - [Project Structure](docs/PROJECT_STRUCTURE.md)
 - [Service Blueprint](Service%20Blueprint.md)
@@ -143,13 +144,11 @@ See [samples/](samples/) for complete examples.
 
 ## Documentation
 
-- **Getting Started**: [docs/getting-started.md](docs/getting-started.md)
-- **Architecture**: [docs/architecture/README.md](docs/architecture/README.md)
-- **Package Management**: [docs/PACKAGE_MANAGEMENT.md](docs/PACKAGE_MANAGEMENT.md)
-- **Test Framework Migration**: [docs/TEST_FRAMEWORK_MIGRATION.md](docs/TEST_FRAMEWORK_MIGRATION.md)
-- **Workflow Development**: Coming soon
-- **API Reference**: Coming soon
-- **Operations**: Coming soon
+- **Index**: [docs/README.md](docs/README.md) for an overview of the available material.
+- **Guides**: [Getting Started](docs/getting-started.md), [Package Management](docs/PACKAGE_MANAGEMENT.md), [Test Framework Migration](docs/TEST_FRAMEWORK_MIGRATION.md).
+- **Architecture**: [Architecture Overview](docs/architecture/README.md), [Service Blueprint](Service%20Blueprint.md).
+- **Status & Progress**: [Phase 1 Progress](docs/PHASE1_PROGRESS.md), [Setup Summary](SETUP_SUMMARY.md).
+- **Planned Areas**: API and operations documentation are scaffolded but not yet published.
 
 ## Contributing
 

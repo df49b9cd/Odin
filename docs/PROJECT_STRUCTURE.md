@@ -6,63 +6,71 @@ This document describes the organization of the Odin codebase.
 
 ```
 Odin/
-├── .github/                      # GitHub-specific files
-│   ├── copilot-instructions.md  # AI coding assistant instructions
-│   └── workflows/               # CI/CD workflows
-│       └── ci.yml              # Main CI pipeline
-├── deployment/                  # Deployment configurations
-│   ├── grafana/                # Grafana dashboards and datasources
-│   ├── helm/                   # Helm chart for Kubernetes
-│   ├── kubernetes/             # Raw Kubernetes manifests
-│   ├── terraform/              # Infrastructure as code
-│   ├── otel-collector-config.yaml  # OpenTelemetry configuration
-│   └── prometheus.yml          # Prometheus scrape config
-├── docs/                       # Documentation
-│   ├── api/                    # API reference documentation
-│   ├── architecture/           # Architecture documentation
-│   │   └── README.md          # Architecture overview
-│   ├── operations/             # Operations and runbooks
-│   ├── getting-started.md      # Getting started guide
-│   ├── workflow-development.md # Workflow authoring guide
-│   └── deployment.md           # Deployment guide
-├── samples/                    # Sample applications
-│   └── OrderProcessing.Sample/ # Order processing workflow example
-├── src/                        # Source code
-│   ├── Odin.Contracts/        # Shared contracts and DTOs
-│   ├── Odin.Core/             # Core utilities and extensions
-│   ├── Odin.Persistence/      # Data access layer
-│   ├── Odin.ControlPlane.Api/ # REST API service
-│   ├── Odin.ControlPlane.Grpc/# gRPC service (Temporal-compatible)
-│   ├── Odin.ExecutionEngine.History/     # History service
-│   ├── Odin.ExecutionEngine.Matching/    # Matching service
-│   ├── Odin.ExecutionEngine.SystemWorkers/ # System workers
-│   ├── Odin.Sdk/              # Worker SDK
-│   ├── Odin.WorkerHost/       # Worker host service
-│   ├── Odin.Visibility/       # Visibility service
-│   └── Odin.Cli/              # Command-line tool
-├── tests/                      # Test projects
-│   ├── Odin.Core.Tests/       # Core library tests
-│   ├── Odin.Sdk.Tests/        # SDK tests
-│   ├── Odin.ExecutionEngine.Tests/ # Execution engine tests
-│   └── Odin.Integration.Tests/    # End-to-end tests
-├── .editorconfig               # Code style configuration
-├── .env.example                # Example environment variables
-├── .gitignore                  # Git ignore patterns
-├── CONTRIBUTING.md             # Contribution guidelines
-├── Directory.Build.props       # MSBuild common properties
-├── docker-compose.yml          # Docker Compose configuration
-├── Dockerfile                  # Multi-stage Dockerfile
-├── global.json                 # .NET SDK version
-├── LICENSE                     # MIT License
-├── Odin.sln                    # Solution file
-├── PROJECT_README.md           # Project README
-├── README.md                   # Main README
-└── Service Blueprint.md        # Service design document
+├── .github/                        # GitHub workflows and automation guidance
+│   ├── copilot-instructions.md
+│   └── workflows/
+│       └── ci.yml
+├── deployment/                     # Deployment configurations and templates
+│   ├── grafana/
+│   ├── helm/
+│   ├── kubernetes/
+│   ├── terraform/
+│   ├── otel-collector-config.yaml
+│   └── prometheus.yml
+├── docs/                           # Project documentation
+│   ├── README.md                   # Documentation index
+│   ├── PACKAGE_MANAGEMENT.md
+│   ├── PHASE1_PROGRESS.md
+│   ├── PROJECT_STRUCTURE.md
+│   ├── TEST_FRAMEWORK_MIGRATION.md
+│   ├── architecture/
+│   │   └── README.md
+│   ├── api/                        # Placeholder for detailed API docs
+│   ├── operations/                 # Placeholder for operational runbooks
+│   └── reference/
+│       └── hugo-api-reference.md
+├── samples/
+│   └── OrderProcessing.Sample/
+├── src/
+│   ├── Odin.Cli/
+│   ├── Odin.Contracts/
+│   ├── Odin.ControlPlane.Api/
+│   ├── Odin.ControlPlane.Grpc/
+│   ├── Odin.Core/
+│   ├── Odin.ExecutionEngine.History/
+│   ├── Odin.ExecutionEngine.Matching/
+│   ├── Odin.ExecutionEngine.SystemWorkers/
+│   ├── Odin.Persistence/
+│   ├── Odin.Sdk/
+│   ├── Odin.Visibility/
+│   └── Odin.WorkerHost/
+├── tests/
+│   ├── Odin.Core.Tests/
+│   ├── Odin.ExecutionEngine.Tests/
+│   ├── Odin.Integration.Tests/
+│   └── Odin.Sdk.Tests/
+├── .editorconfig
+├── .env.example
+├── .gitignore
+├── CONTRIBUTING.md
+├── Directory.Build.props
+├── Directory.Packages.props
+├── Dockerfile
+├── PROJECT_README.md
+├── README.md
+├── SETUP_SUMMARY.md
+├── Service Blueprint.md
+├── docker-compose.yml
+├── global.json
+├── LICENSE
+└── Odin.slnx
 ```
 
 ## Project Descriptions
 
 ### Source Projects
+
+> The responsibilities listed below describe the intended end-state for each project. Unless explicitly marked as available today, the implementation is still evolving during Phase 1.
 
 #### Odin.Contracts
 **Type**: Class Library  
@@ -144,24 +152,12 @@ Odin/
 #### Odin.ExecutionEngine.SystemWorkers
 **Type**: Worker Service  
 **Purpose**: Internal system workflow orchestration  
-**Key Workers**:
-- Timer worker
-- Retry worker
-- Cleanup worker
-- History archival worker
-- Uses Hugo's `WaitGroup` + `ErrGroup`
+**Current Focus**: Hosting infrastructure and background worker plumbing. Specific timers, retries, and archival workflows will be added during Phase 1 implementation.
 
 #### Odin.Sdk
 **Type**: Class Library  
 **Purpose**: Worker SDK for workflow and activity development  
-**Key Components**:
-- `IWorkflow<TInput, TOutput>` interface
-- `IActivity<TInput, TOutput>` interface
-- Workflow execution context
-- Activity heartbeat support
-- DeterministicEffectStore integration
-- VersionGate for workflow versioning
-- Hugo primitive wrappers
+**Current Focus**: Public interfaces (`IWorkflow`, `IActivity`) and integration points for Hugo primitives. Deterministic execution helpers and replay utilities are planned.
 
 #### Odin.WorkerHost
 **Type**: Worker Service  
@@ -186,14 +182,7 @@ Odin/
 #### Odin.Cli
 **Type**: Console Application  
 **Purpose**: Command-line tool for Odin operations  
-**Commands** (TBD):
-```bash
-hugo-orchestrator namespace create --name "production"
-hugo-orchestrator workflow start --type "OrderProcessing" --input "{...}"
-hugo-orchestrator workflow signal --id "wf-123" --signal "UpdateOrder"
-hugo-orchestrator workflow query --id "wf-123" --query "GetStatus"
-hugo-orchestrator migrate up
-```
+**Current Focus**: Project scaffolding and shared command abstractions. Command implementations will arrive alongside the control plane features.
 
 ### Test Projects
 

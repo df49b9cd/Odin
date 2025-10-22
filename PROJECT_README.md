@@ -101,13 +101,14 @@ dotnet test --collect:"XPlat Code Coverage"
 
 ## 📖 Documentation
 
-- [Architecture Overview](docs/architecture/README.md)
+- [Documentation Index](docs/README.md)
 - [Getting Started Guide](docs/getting-started.md)
-- [Workflow Development](docs/workflow-development.md)
-- [Activity Implementation](docs/activity-implementation.md)
-- [Deployment Guide](docs/deployment.md)
-- [API Reference](docs/api/README.md)
-- [Operations Manual](docs/operations/README.md)
+- [Architecture Overview](docs/architecture/README.md)
+- [Project Structure](docs/PROJECT_STRUCTURE.md)
+- [Package Management](docs/PACKAGE_MANAGEMENT.md)
+- [Phase 1 Progress](docs/PHASE1_PROGRESS.md)
+
+> API, operations, and workflow development guides are planned but not yet published.
 
 ## 🔧 Configuration
 
@@ -130,7 +131,7 @@ HUGO_ORCHESTRATOR_SHARD_COUNT=512
 HUGO_ORCHESTRATOR_HISTORY_RETENTION_DAYS=30
 ```
 
-See [configuration documentation](docs/configuration.md) for all options.
+Additional configuration details will land with the forthcoming operations documentation; track progress in the [Phase 1 Progress](docs/PHASE1_PROGRESS.md) document.
 
 ## 💻 Usage Example
 
@@ -139,9 +140,8 @@ See [configuration documentation](docs/configuration.md) for all options.
 ```csharp
 using Odin.Sdk;
 using static Hugo.Go;
-using Odin.Sdk;
 
-public class OrderProcessingWorkflow : IWorkflow
+public class OrderProcessingWorkflow : IWorkflow<OrderRequest, OrderResult>
 {
     public async Task<Result<OrderResult>> ExecuteAsync(
         OrderRequest request,

@@ -180,11 +180,11 @@ Console.WriteLine($"Result: {result}");
 
 ## Next Steps
 
-- **Learn about workflows**: [Workflow Development Guide](workflow-development.md)
-- **Implement activities**: [Activity Implementation Guide](activity-implementation.md)
+- **Explore the architecture**: [Architecture Overview](architecture/README.md)
+- **Review the repository layout**: [Project Structure](PROJECT_STRUCTURE.md)
+- **Track current progress**: [Phase 1 Progress](PHASE1_PROGRESS.md)
 - **Explore samples**: Check out [samples/](../samples/)
-- **Configure deployment**: [Deployment Guide](deployment.md)
-- **Monitor your workflows**: [Operations Manual](operations/README.md)
+- **Plan upcoming docs**: Workflow, activity, deployment, and operations guides are planned; see the doc index for status updates.
 
 ## Configuration
 
