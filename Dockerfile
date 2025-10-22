@@ -4,6 +4,8 @@ WORKDIR /src
 
 # Copy solution and project files
 COPY Odin.slnx ./
+COPY Directory.Build.props ./
+COPY Directory.Packages.props ./
 COPY src/Odin.Contracts/*.csproj ./src/Odin.Contracts/
 COPY src/Odin.Core/*.csproj ./src/Odin.Core/
 COPY src/Odin.Persistence/*.csproj ./src/Odin.Persistence/
@@ -16,6 +18,11 @@ COPY src/Odin.Sdk/*.csproj ./src/Odin.Sdk/
 COPY src/Odin.WorkerHost/*.csproj ./src/Odin.WorkerHost/
 COPY src/Odin.Visibility/*.csproj ./src/Odin.Visibility/
 COPY src/Odin.Cli/*.csproj ./src/Odin.Cli/
+COPY samples/OrderProcessing.Sample/*.csproj ./samples/OrderProcessing.Sample/
+COPY tests/Odin.Core.Tests/*.csproj ./tests/Odin.Core.Tests/
+COPY tests/Odin.ExecutionEngine.Tests/*.csproj ./tests/Odin.ExecutionEngine.Tests/
+COPY tests/Odin.Integration.Tests/*.csproj ./tests/Odin.Integration.Tests/
+COPY tests/Odin.Sdk.Tests/*.csproj ./tests/Odin.Sdk.Tests/
 
 # Restore dependencies
 RUN dotnet restore
