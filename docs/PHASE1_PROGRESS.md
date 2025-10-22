@@ -6,7 +6,7 @@
 
 ## Summary
 
-Validated Phase 1 foundation work for the Hugo Durable Orchestrator (Odin): PostgreSQL migrations rehomed into a `golang-migrate`-compatible structure, Odin.Core utility helpers (Errors, GoHelpers, HashingUtilities, JsonOptions), a comprehensive contract model suite, the PostgreSqlConnectionFactory with Result-based error handling, and in-memory repository implementations. Namespace, Shard, and WorkflowExecution repositories are production-ready with Dapper; History/TaskQueue/Visibility repositories remain queued for full query implementations and testing.
+Validated Phase 1 foundation work for the Hugo Durable Orchestrator (Odin): PostgreSQL migrations rehomed into a `golang-migrate`-compatible structure, Odin.Core utility helpers (Errors, GoHelpers, HashingUtilities, JsonOptions), a comprehensive contract model suite, the PostgreSqlConnectionFactory with Result-based error handling, and in-memory repository implementations. Namespace, Shard, WorkflowExecution, and History repositories are production-ready with Dapper; TaskQueue/Visibility repositories remain queued for full query implementations and testing.
 
 ## Validated Work To Date
 
@@ -153,7 +153,7 @@ Created comprehensive contract models for all system components:
 
 ### 5. 🚧 Odin.Persistence Repository Layer
 
-**Status**: In Progress (NamespaceRepository + ShardRepository + WorkflowExecutionRepository implemented; History/TaskQueue/Visibility repositories scaffolded)
+**Status**: In Progress (Namespace/Shard/Workflow/History repositories implemented; TaskQueue/Visibility repositories scaffolded)
 
 Established repository abstractions and initial implementations:
 
@@ -171,9 +171,10 @@ Established repository abstractions and initial implementations:
 - `NamespaceRepository` - Complete Dapper-based implementation with Result<T> propagation and logging
 - `ShardRepository` - Dapper-backed shard leasing (acquire/renew/release/heartbeat) with deterministic range calculations
 - `WorkflowExecutionRepository` - Dapper implementation with optimistic concurrency checks, JSON mapping, and shard routing helpers
+- `HistoryRepository` - Batch append with sequential validation, JSON payload handling, and deterministic retrieval APIs
 - `PersistenceServiceCollectionExtensions` - Provider wiring for in-memory and PostgreSQL repositories
 - In-memory repositories for all interfaces to unblock local development
-- Stub SQL repositories (`HistoryRepository`, `TaskQueueRepository`, `VisibilityRepository`) returning placeholder results pending query authoring
+- Stub SQL repositories (`TaskQueueRepository`, `VisibilityRepository`) returning placeholder results pending query authoring
 
 **Infrastructure Components**:
 
@@ -189,8 +190,8 @@ Established repository abstractions and initial implementations:
 
 **Follow-up**:
 
-- Author concrete SQL for remaining stub repositories (History, TaskQueue, Visibility) and align with migration schema
-- Add unit/integration coverage for Namespace/Workflow/Shards repositories and connection factory
+- Author concrete SQL for remaining stub repositories (TaskQueue, Visibility) and align with migration schema
+- Add unit/integration coverage for Namespace/Workflow/History/Shards repositories and connection factory
 
 **Files Created**:
 
@@ -204,7 +205,7 @@ src/Odin.Persistence/
 │   ├── IVisibilityRepository.cs
 │   └── IShardRepository.cs
 ├── Repositories/
-│   ├── HistoryRepository.cs (stub)
+│   ├── HistoryRepository.cs (implemented)
 │   ├── NamespaceRepository.cs (implemented)
 │   ├── ShardRepository.cs (implemented)
 │   ├── WorkflowExecutionRepository.cs (implemented)
@@ -224,9 +225,10 @@ src/Odin.Persistence/
 - Confirmed 10 PostgreSQL migrations now tracked in `src/Odin.Persistence/Migrations/PostgreSQL`
 - Added Docker-based `tools/migrate.sh` wrapper around `golang-migrate` CLI
 - Implemented Dapper-backed WorkflowExecutionRepository with optimistic locking and JSON mapping
+- Implemented Dapper-backed HistoryRepository with sequential validation, JSON handling, and archival helpers
 - Verified Odin.Core helpers (`Errors.cs`, `GoHelpers.cs`, `HashingUtilities.cs`, `JsonOptions.cs`) compile and align with Hugo integration patterns
 - Located Hugo API research compendium in `docs/reference/hugo-api-reference.md`
-- Confirmed SQL repositories for history, task queue, and visibility remain stubbed pending Dapper queries
+- Confirmed SQL repositories for task queue and visibility remain stubbed pending Dapper queries
 
 ## Build Status
 
@@ -243,7 +245,7 @@ src/Odin.Persistence/
 - **C# Source Files Created**: 19 new files
 - **Lines of C# Code**: ~4,000+
 - **Repository Interfaces**: 6 comprehensive interfaces
-- **Repository Implementations**: 3 implemented (Namespace, Shard, WorkflowExecution), 3 stubbed (History, TaskQueue, Visibility)
+- **Repository Implementations**: 4 implemented (Namespace, Shard, WorkflowExecution, History), 2 stubbed (TaskQueue, Visibility)
 - **Total Contract Models**: 50+ record types
 - **Build Time**: ~3.4 seconds
 - **Test Projects**: 4 (ready for test implementation)
@@ -286,9 +288,9 @@ src/Odin.Persistence/
 ### 1. Persistence Foundation
 
 - **Objective**: Deliver production-ready PostgreSQL persistence with Dapper repositories matching the migration set.
-- **Status**: ✅ Schemas complete; ✅ Namespace/Shard/Workflow repositories implemented; 🚧 History/TaskQueue/Visibility repositories stubbed.
+- **Status**: ✅ Schemas complete; ✅ Namespace/Shard/Workflow/History repositories implemented; 🚧 TaskQueue/Visibility repositories stubbed.
 - **Tooling**: `golang-migrate` adoption with Docker wrapper (`tools/migrate.sh`) targeting `src/Odin.Persistence/Migrations/PostgreSQL`.
-- **Immediate Focus**: Implement remaining SQL queries, wire stored functions (`get_next_task`, cleanup routines), and add in-memory/integration tests for repository behaviour.
+- **Immediate Focus**: Implement TaskQueue/Visibility repositories, wire stored functions (`get_next_task`, cleanup routines), and add in-memory/PostgreSQL tests for all persistence repositories.
 
 ### 2. Worker SDK Core
 
@@ -327,7 +329,7 @@ src/Odin.Persistence/
 - [ ] Implement TaskQueueRepository with lease heartbeats
 - [ ] Implement VisibilityRepository with advanced search
 - [ ] Harden ShardRepository lease renewal/release paths with integration tests
-- [ ] Add repository unit tests (in-memory) and PostgreSQL integration tests for Namespace/Shard flows
+- [ ] Add repository unit tests (in-memory) and PostgreSQL integration tests for Namespace/Workflow/History flows
 - [ ] Wire PostgreSQL functions (`get_next_task`, cleanup routines) through TaskQueueRepository logic
 
 ### Priority 2: Worker SDK Core
@@ -390,7 +392,7 @@ src/Odin.Persistence/
    - **Resolution**: Reassess if Odin-specific Result helpers become necessary
 
 2. **SQL Repository Methods Stubbed**  
-   - **Impact**: Workflow, history, task queue, and visibility persistence paths not wired to database  
+   - **Impact**: Task queue and visibility persistence paths not wired to database  
    - **Resolution**: Author Dapper queries aligned with migrations; cover via integration tests
 
 3. **MySQL Support Deferred**  
@@ -403,7 +405,7 @@ src/Odin.Persistence/
 
 5. **Test Coverage**  
    - **Impact**: No automated validation for persistence or utilities  
-   - **Resolution**: Seed xUnit suites starting with Namespace/Shard repositories and core helpers
+   - **Resolution**: Seed xUnit suites starting with Namespace/Workflow/History repositories and core helpers
 
 ## Dependencies
 
