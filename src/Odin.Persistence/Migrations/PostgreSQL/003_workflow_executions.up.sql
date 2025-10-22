@@ -1,5 +1,4 @@
--- Odin Persistence Schema: Workflow Executions
--- PostgreSQL 14+ compatible
+-- Odin Persistence Migration: Workflow Executions (Up)
 
 CREATE TABLE IF NOT EXISTS workflow_executions (
     namespace_id UUID NOT NULL REFERENCES namespaces(namespace_id) ON DELETE CASCADE,
@@ -31,19 +30,15 @@ CREATE TABLE IF NOT EXISTS workflow_executions (
     PRIMARY KEY (namespace_id, workflow_id, run_id)
 );
 
--- Indexes for workflow queries
-CREATE INDEX idx_workflow_executions_namespace_state ON workflow_executions(namespace_id, workflow_state);
-CREATE INDEX idx_workflow_executions_task_queue ON workflow_executions(namespace_id, task_queue, workflow_state);
-CREATE INDEX idx_workflow_executions_workflow_type ON workflow_executions(namespace_id, workflow_type);
-CREATE INDEX idx_workflow_executions_shard ON workflow_executions(shard_id, workflow_state);
-CREATE INDEX idx_workflow_executions_started_at ON workflow_executions(namespace_id, started_at DESC);
-CREATE INDEX idx_workflow_executions_parent ON workflow_executions(namespace_id, parent_workflow_id, parent_run_id) WHERE parent_workflow_id IS NOT NULL;
-
--- Partial index for active workflows (most common query)
-CREATE INDEX idx_workflow_executions_active ON workflow_executions(namespace_id, workflow_id) 
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_namespace_state ON workflow_executions(namespace_id, workflow_state);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_task_queue ON workflow_executions(namespace_id, task_queue, workflow_state);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_workflow_type ON workflow_executions(namespace_id, workflow_type);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_shard ON workflow_executions(shard_id, workflow_state);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_started_at ON workflow_executions(namespace_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_parent ON workflow_executions(namespace_id, parent_workflow_id, parent_run_id) WHERE parent_workflow_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_active ON workflow_executions(namespace_id, workflow_id) 
     WHERE workflow_state IN ('running', 'continued_as_new');
 
--- Comments
 COMMENT ON TABLE workflow_executions IS 'Mutable workflow execution state tracking current run status';
 COMMENT ON COLUMN workflow_executions.execution_state IS 'Serialized workflow execution state for replay';
 COMMENT ON COLUMN workflow_executions.next_event_id IS 'Next event ID to be assigned in the history';

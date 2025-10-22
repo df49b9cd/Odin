@@ -1,5 +1,4 @@
--- Odin Persistence Schema: Schedules
--- PostgreSQL 14+ compatible
+-- Odin Persistence Migration: Schedules (Up)
 
 CREATE TABLE IF NOT EXISTS workflow_schedules (
     schedule_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -28,9 +27,8 @@ CREATE TABLE IF NOT EXISTS workflow_schedules (
     )
 );
 
--- Indexes for schedule execution
-CREATE INDEX idx_workflow_schedules_next_run ON workflow_schedules(next_run_at) WHERE NOT paused AND next_run_at IS NOT NULL;
-CREATE INDEX idx_workflow_schedules_namespace ON workflow_schedules(namespace_id, paused);
+CREATE INDEX IF NOT EXISTS idx_workflow_schedules_next_run ON workflow_schedules(next_run_at) WHERE NOT paused AND next_run_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_workflow_schedules_namespace ON workflow_schedules(namespace_id, paused);
 
 COMMENT ON TABLE workflow_schedules IS 'Scheduled workflow executions (cron or interval-based)';
 COMMENT ON COLUMN workflow_schedules.cron_expression IS 'Cron expression for periodic execution (mutually exclusive with interval)';
@@ -41,7 +39,6 @@ COMMENT ON COLUMN workflow_schedules.next_run_at IS 'Next scheduled execution ti
 COMMENT ON COLUMN workflow_schedules.last_run_at IS 'Last execution time';
 COMMENT ON COLUMN workflow_schedules.last_run_result IS 'Result of last execution (completed, failed, etc.)';
 
--- Schedule execution history
 CREATE TABLE IF NOT EXISTS schedule_execution_history (
     execution_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     schedule_id UUID NOT NULL REFERENCES workflow_schedules(schedule_id) ON DELETE CASCADE,
@@ -58,7 +55,7 @@ CREATE TABLE IF NOT EXISTS schedule_execution_history (
         ON DELETE CASCADE
 );
 
-CREATE INDEX idx_schedule_execution_history_schedule ON schedule_execution_history(schedule_id, started_at DESC);
-CREATE INDEX idx_schedule_execution_history_workflow ON schedule_execution_history(namespace_id, workflow_id, run_id);
+CREATE INDEX IF NOT EXISTS idx_schedule_execution_history_schedule ON schedule_execution_history(schedule_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_schedule_execution_history_workflow ON schedule_execution_history(namespace_id, workflow_id, run_id);
 
 COMMENT ON TABLE schedule_execution_history IS 'Historical record of scheduled workflow executions';

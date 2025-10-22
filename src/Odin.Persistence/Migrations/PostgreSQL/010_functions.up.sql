@@ -1,7 +1,5 @@
--- Odin Persistence Schema: Utility Functions
--- PostgreSQL 14+ compatible
+-- Odin Persistence Migration: Utility Functions (Up)
 
--- Function to update updated_at timestamp automatically
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -10,7 +8,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Triggers for updated_at columns
 CREATE TRIGGER update_namespaces_updated_at BEFORE UPDATE ON namespaces
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -23,19 +20,16 @@ CREATE TRIGGER update_visibility_records_updated_at BEFORE UPDATE ON visibility_
 CREATE TRIGGER update_workflow_schedules_updated_at BEFORE UPDATE ON workflow_schedules
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Function to calculate shard ID from workflow ID
 CREATE OR REPLACE FUNCTION calculate_shard_id(p_workflow_id VARCHAR, p_shard_count INTEGER DEFAULT 512)
 RETURNS INTEGER AS $$
 DECLARE
     hash_value BIGINT;
 BEGIN
-    -- Use hashtext for consistent hashing
     hash_value := ABS(hashtext(p_workflow_id)::BIGINT);
     RETURN (hash_value % p_shard_count);
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
--- Function to clean up expired tasks
 CREATE OR REPLACE FUNCTION cleanup_expired_tasks()
 RETURNS INTEGER AS $$
 DECLARE
@@ -49,7 +43,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to clean up expired leases and requeue tasks
 CREATE OR REPLACE FUNCTION cleanup_expired_leases()
 RETURNS INTEGER AS $$
 DECLARE
@@ -63,7 +56,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to get next available task from queue (used by matching service)
 CREATE OR REPLACE FUNCTION get_next_task(
     p_namespace_id UUID,
     p_task_queue_name VARCHAR,
@@ -89,7 +81,6 @@ BEGIN
     v_lease_id := gen_random_uuid();
     v_lease_expires_at := NOW() + (p_lease_duration_seconds || ' seconds')::INTERVAL;
     
-    -- Get next available task
     SELECT tq.task_id, tq.workflow_id, tq.run_id, tq.task_data
     INTO v_task_id, v_workflow_id, v_run_id, v_task_data
     FROM task_queues tq
@@ -109,7 +100,6 @@ BEGIN
     LIMIT 1
     FOR UPDATE SKIP LOCKED;
     
-    -- If task found, create lease
     IF v_task_id IS NOT NULL THEN
         INSERT INTO task_queue_leases (
             namespace_id, task_queue_name, task_queue_type, task_id,

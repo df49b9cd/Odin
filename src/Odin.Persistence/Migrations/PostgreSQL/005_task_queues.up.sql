@@ -1,5 +1,4 @@
--- Odin Persistence Schema: Task Queues
--- PostgreSQL 14+ compatible
+-- Odin Persistence Migration: Task Queues (Up)
 
 CREATE TABLE IF NOT EXISTS task_queues (
     namespace_id UUID NOT NULL REFERENCES namespaces(namespace_id) ON DELETE CASCADE,
@@ -16,16 +15,12 @@ CREATE TABLE IF NOT EXISTS task_queues (
     PRIMARY KEY (namespace_id, task_queue_name, task_queue_type, task_id)
 );
 
--- Indexes for task queue operations
-CREATE INDEX idx_task_queues_partition ON task_queues(namespace_id, task_queue_name, task_queue_type, partition_hash, scheduled_at);
-CREATE INDEX idx_task_queues_expiry ON task_queues(expiry_at) WHERE expiry_at IS NOT NULL;
-CREATE INDEX idx_task_queues_workflow ON task_queues(namespace_id, workflow_id, run_id);
-
--- Partial index for pending tasks (most critical query path)
-CREATE INDEX idx_task_queues_pending ON task_queues(namespace_id, task_queue_name, task_queue_type, scheduled_at)
+CREATE INDEX IF NOT EXISTS idx_task_queues_partition ON task_queues(namespace_id, task_queue_name, task_queue_type, partition_hash, scheduled_at);
+CREATE INDEX IF NOT EXISTS idx_task_queues_expiry ON task_queues(expiry_at) WHERE expiry_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_task_queues_workflow ON task_queues(namespace_id, workflow_id, run_id);
+CREATE INDEX IF NOT EXISTS idx_task_queues_pending ON task_queues(namespace_id, task_queue_name, task_queue_type, scheduled_at)
     WHERE expiry_at IS NULL OR expiry_at > NOW();
 
--- Comments
 COMMENT ON TABLE task_queues IS 'Pending workflow and activity tasks awaiting worker poll';
 COMMENT ON COLUMN task_queues.task_queue_name IS 'Name of the task queue for worker routing';
 COMMENT ON COLUMN task_queues.task_queue_type IS 'Type of task: workflow (decision) or activity';
@@ -34,7 +29,6 @@ COMMENT ON COLUMN task_queues.scheduled_at IS 'When the task was scheduled';
 COMMENT ON COLUMN task_queues.expiry_at IS 'When the task should be removed (for timeouts)';
 COMMENT ON COLUMN task_queues.partition_hash IS 'Hash for distributing tasks across matching service partitions';
 
--- Table for task queue leases (in-flight tasks)
 CREATE TABLE IF NOT EXISTS task_queue_leases (
     namespace_id UUID NOT NULL,
     task_queue_name VARCHAR(255) NOT NULL,
@@ -52,9 +46,8 @@ CREATE TABLE IF NOT EXISTS task_queue_leases (
         ON DELETE CASCADE
 );
 
--- Indexes for lease management
-CREATE INDEX idx_task_queue_leases_worker ON task_queue_leases(worker_identity, lease_expires_at);
-CREATE INDEX idx_task_queue_leases_expiry ON task_queue_leases(lease_expires_at);
+CREATE INDEX IF NOT EXISTS idx_task_queue_leases_worker ON task_queue_leases(worker_identity, lease_expires_at);
+CREATE INDEX IF NOT EXISTS idx_task_queue_leases_expiry ON task_queue_leases(lease_expires_at);
 
 COMMENT ON TABLE task_queue_leases IS 'Active leases for tasks being processed by workers';
 COMMENT ON COLUMN task_queue_leases.worker_identity IS 'Identity of the worker that leased the task';

@@ -1,5 +1,4 @@
--- Odin Persistence Schema: Timers
--- PostgreSQL 14+ compatible
+-- Odin Persistence Migration: Workflow Timers (Up)
 
 CREATE TABLE IF NOT EXISTS workflow_timers (
     namespace_id UUID NOT NULL,
@@ -15,9 +14,8 @@ CREATE TABLE IF NOT EXISTS workflow_timers (
         ON DELETE CASCADE
 );
 
--- Index for timer firing
-CREATE INDEX idx_workflow_timers_fire_at ON workflow_timers(fire_at);
-CREATE INDEX idx_workflow_timers_workflow ON workflow_timers(namespace_id, workflow_id, run_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_timers_fire_at ON workflow_timers(fire_at);
+CREATE INDEX IF NOT EXISTS idx_workflow_timers_workflow ON workflow_timers(namespace_id, workflow_id, run_id);
 
 COMMENT ON TABLE workflow_timers IS 'Durable timers for workflow sleep and delayed execution';
 COMMENT ON COLUMN workflow_timers.timer_id IS 'Unique timer identifier within the workflow';

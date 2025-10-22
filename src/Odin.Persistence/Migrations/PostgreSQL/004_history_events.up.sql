@@ -1,5 +1,4 @@
--- Odin Persistence Schema: History Events
--- PostgreSQL 14+ compatible
+-- Odin Persistence Migration: History Events (Up)
 
 CREATE TABLE IF NOT EXISTS history_events (
     namespace_id UUID NOT NULL,
@@ -18,22 +17,15 @@ CREATE TABLE IF NOT EXISTS history_events (
         ON DELETE CASCADE
 );
 
--- Indexes for history queries
-CREATE INDEX idx_history_events_workflow_run ON history_events(namespace_id, workflow_id, run_id, event_id);
-CREATE INDEX idx_history_events_type ON history_events(namespace_id, event_type, event_timestamp DESC);
-CREATE INDEX idx_history_events_timestamp ON history_events(namespace_id, event_timestamp DESC);
-CREATE INDEX idx_history_events_task ON history_events(namespace_id, workflow_id, run_id, task_id) WHERE task_id >= 0;
+CREATE INDEX IF NOT EXISTS idx_history_events_workflow_run ON history_events(namespace_id, workflow_id, run_id, event_id);
+CREATE INDEX IF NOT EXISTS idx_history_events_type ON history_events(namespace_id, event_type, event_timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_history_events_timestamp ON history_events(namespace_id, event_timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_history_events_task ON history_events(namespace_id, workflow_id, run_id, task_id) WHERE task_id >= 0;
+CREATE INDEX IF NOT EXISTS idx_history_events_data_gin ON history_events USING gin(event_data);
 
--- Gin index for JSON queries on event_data
-CREATE INDEX idx_history_events_data_gin ON history_events USING gin(event_data);
-
--- Comments
 COMMENT ON TABLE history_events IS 'Immutable event log capturing complete workflow history';
 COMMENT ON COLUMN history_events.event_id IS 'Monotonically increasing event sequence number within a run';
 COMMENT ON COLUMN history_events.event_type IS 'Type of workflow event (WorkflowStarted, ActivityScheduled, etc.)';
 COMMENT ON COLUMN history_events.task_id IS 'Associated workflow task ID for decision events';
 COMMENT ON COLUMN history_events.version IS 'Event schema version for backward compatibility';
 COMMENT ON COLUMN history_events.event_data IS 'Full event payload in JSON format';
-
--- Partitioning strategy (optional, for high-volume deployments)
--- Partition by namespace_id or time ranges as needed

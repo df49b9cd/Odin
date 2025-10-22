@@ -1,5 +1,4 @@
--- Odin Persistence Schema: History Shards
--- PostgreSQL 14+ compatible
+-- Odin Persistence Migration: History Shards (Up)
 
 CREATE TABLE IF NOT EXISTS history_shards (
     shard_id INTEGER PRIMARY KEY CHECK (shard_id >= 0 AND shard_id < 512),
@@ -13,11 +12,9 @@ CREATE TABLE IF NOT EXISTS history_shards (
     CONSTRAINT check_shard_range CHECK (range_end > range_start)
 );
 
--- Indexes
-CREATE INDEX idx_history_shards_owner ON history_shards(owner_identity);
-CREATE INDEX idx_history_shards_expiry ON history_shards(shard_owner_lease_expiry);
+CREATE INDEX IF NOT EXISTS idx_history_shards_owner ON history_shards(owner_identity);
+CREATE INDEX IF NOT EXISTS idx_history_shards_expiry ON history_shards(shard_owner_lease_expiry);
 
--- Comments
 COMMENT ON TABLE history_shards IS 'Shard metadata for distributing workflow execution across multiple history service instances';
 COMMENT ON COLUMN history_shards.shard_id IS 'Shard identifier (0-511 by default, supports 512 shards)';
 COMMENT ON COLUMN history_shards.owner_identity IS 'Identity of the history service instance that owns this shard';
@@ -26,7 +23,6 @@ COMMENT ON COLUMN history_shards.range_end IS 'End of the workflow ID hash range
 COMMENT ON COLUMN history_shards.stolen_since_renew IS 'Counter tracking shard ownership changes';
 COMMENT ON COLUMN history_shards.shard_owner_lease_expiry IS 'Timestamp when current lease expires';
 
--- Initialize 512 shards
 INSERT INTO history_shards (shard_id, range_start, range_end)
 SELECT 
     shard_id,

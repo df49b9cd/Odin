@@ -1,5 +1,5 @@
--- Odin Persistence Schema: Namespaces
--- PostgreSQL 14+ compatible
+-- Odin Persistence Migration: Namespaces (Up)
+-- Applies namespace metadata table plus indexes and comments.
 
 CREATE TABLE IF NOT EXISTS namespaces (
     namespace_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -17,12 +17,10 @@ CREATE TABLE IF NOT EXISTS namespaces (
     status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'deprecated', 'deleted'))
 );
 
--- Indexes
-CREATE INDEX idx_namespaces_name ON namespaces(namespace_name);
-CREATE INDEX idx_namespaces_status ON namespaces(status) WHERE status = 'active';
-CREATE INDEX idx_namespaces_created_at ON namespaces(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_namespaces_name ON namespaces(namespace_name);
+CREATE INDEX IF NOT EXISTS idx_namespaces_status ON namespaces(status) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_namespaces_created_at ON namespaces(created_at DESC);
 
--- Comments
 COMMENT ON TABLE namespaces IS 'Multi-tenant namespace isolation for workflows';
 COMMENT ON COLUMN namespaces.retention_days IS 'Number of days to retain workflow history before cleanup';
 COMMENT ON COLUMN namespaces.history_archival_enabled IS 'Enable automatic history archival to external storage';

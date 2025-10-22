@@ -1,5 +1,4 @@
--- Odin Persistence Schema: Visibility Records
--- PostgreSQL 14+ compatible
+-- Odin Persistence Migration: Visibility Records (Up)
 
 CREATE TABLE IF NOT EXISTS visibility_records (
     namespace_id UUID NOT NULL REFERENCES namespaces(namespace_id) ON DELETE CASCADE,
@@ -27,21 +26,15 @@ CREATE TABLE IF NOT EXISTS visibility_records (
         ON DELETE CASCADE
 );
 
--- Indexes for advanced visibility queries
-CREATE INDEX idx_visibility_namespace_state ON visibility_records(namespace_id, workflow_state, start_time DESC);
-CREATE INDEX idx_visibility_namespace_type ON visibility_records(namespace_id, workflow_type, start_time DESC);
-CREATE INDEX idx_visibility_task_queue ON visibility_records(namespace_id, task_queue, workflow_state);
-CREATE INDEX idx_visibility_close_time ON visibility_records(namespace_id, close_time DESC) WHERE close_time IS NOT NULL;
-CREATE INDEX idx_visibility_execution_time ON visibility_records(namespace_id, execution_time DESC);
-CREATE INDEX idx_visibility_parent ON visibility_records(namespace_id, parent_workflow_id, parent_run_id) WHERE parent_workflow_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_visibility_namespace_state ON visibility_records(namespace_id, workflow_state, start_time DESC);
+CREATE INDEX IF NOT EXISTS idx_visibility_namespace_type ON visibility_records(namespace_id, workflow_type, start_time DESC);
+CREATE INDEX IF NOT EXISTS idx_visibility_task_queue ON visibility_records(namespace_id, task_queue, workflow_state);
+CREATE INDEX IF NOT EXISTS idx_visibility_close_time ON visibility_records(namespace_id, close_time DESC) WHERE close_time IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_visibility_execution_time ON visibility_records(namespace_id, execution_time DESC);
+CREATE INDEX IF NOT EXISTS idx_visibility_parent ON visibility_records(namespace_id, parent_workflow_id, parent_run_id) WHERE parent_workflow_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_visibility_search_attrs ON visibility_records USING gin(search_attributes);
+CREATE INDEX IF NOT EXISTS idx_visibility_list_workflows ON visibility_records(namespace_id, workflow_state, workflow_type, start_time DESC);
 
--- GIN index for search attributes (advanced visibility)
-CREATE INDEX idx_visibility_search_attrs ON visibility_records USING gin(search_attributes);
-
--- Composite index for common list queries
-CREATE INDEX idx_visibility_list_workflows ON visibility_records(namespace_id, workflow_state, workflow_type, start_time DESC);
-
--- Comments
 COMMENT ON TABLE visibility_records IS 'Searchable workflow metadata for visibility queries and listing';
 COMMENT ON COLUMN visibility_records.workflow_state IS 'Current state of the workflow execution';
 COMMENT ON COLUMN visibility_records.start_time IS 'When the workflow was started';
@@ -52,7 +45,6 @@ COMMENT ON COLUMN visibility_records.execution_duration_ms IS 'Total execution t
 COMMENT ON COLUMN visibility_records.state_transition_count IS 'Number of state transitions for debugging';
 COMMENT ON COLUMN visibility_records.search_attributes IS 'Custom key-value pairs for advanced search';
 
--- Separate table for workflow tags (optional, for tag-based filtering)
 CREATE TABLE IF NOT EXISTS workflow_tags (
     namespace_id UUID NOT NULL,
     workflow_id VARCHAR(255) NOT NULL,
@@ -65,6 +57,6 @@ CREATE TABLE IF NOT EXISTS workflow_tags (
         ON DELETE CASCADE
 );
 
-CREATE INDEX idx_workflow_tags_key_value ON workflow_tags(namespace_id, tag_key, tag_value);
+CREATE INDEX IF NOT EXISTS idx_workflow_tags_key_value ON workflow_tags(namespace_id, tag_key, tag_value);
 
 COMMENT ON TABLE workflow_tags IS 'Tag-based workflow classification for filtering and grouping';

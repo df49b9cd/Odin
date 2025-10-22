@@ -1,7 +1,5 @@
--- Odin Persistence Schema: Signals and Queries
--- PostgreSQL 14+ compatible
+-- Odin Persistence Migration: Signals & Queries (Up)
 
--- Buffered signals for workflows
 CREATE TABLE IF NOT EXISTS workflow_signals (
     namespace_id UUID NOT NULL,
     workflow_id VARCHAR(255) NOT NULL,
@@ -17,15 +15,14 @@ CREATE TABLE IF NOT EXISTS workflow_signals (
         ON DELETE CASCADE
 );
 
-CREATE INDEX idx_workflow_signals_pending ON workflow_signals(namespace_id, workflow_id, run_id, processed) WHERE NOT processed;
-CREATE INDEX idx_workflow_signals_received ON workflow_signals(namespace_id, received_at DESC);
+CREATE INDEX IF NOT EXISTS idx_workflow_signals_pending ON workflow_signals(namespace_id, workflow_id, run_id, processed) WHERE NOT processed;
+CREATE INDEX IF NOT EXISTS idx_workflow_signals_received ON workflow_signals(namespace_id, received_at DESC);
 
 COMMENT ON TABLE workflow_signals IS 'Buffered signals waiting to be delivered to workflow execution';
 COMMENT ON COLUMN workflow_signals.signal_name IS 'Name of the signal to deliver';
 COMMENT ON COLUMN workflow_signals.signal_input IS 'Signal payload in JSON format';
 COMMENT ON COLUMN workflow_signals.processed IS 'Whether the signal has been consumed by the workflow';
 
--- Query results for workflow queries
 CREATE TABLE IF NOT EXISTS workflow_query_results (
     namespace_id UUID NOT NULL,
     workflow_id VARCHAR(255) NOT NULL,
@@ -40,8 +37,8 @@ CREATE TABLE IF NOT EXISTS workflow_query_results (
     PRIMARY KEY (namespace_id, workflow_id, run_id, query_id)
 );
 
-CREATE INDEX idx_workflow_query_results_workflow ON workflow_query_results(namespace_id, workflow_id, run_id, requested_at DESC);
-CREATE INDEX idx_workflow_query_results_pending ON workflow_query_results(namespace_id, workflow_id, run_id) WHERE completed_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_workflow_query_results_workflow ON workflow_query_results(namespace_id, workflow_id, run_id, requested_at DESC);
+CREATE INDEX IF NOT EXISTS idx_workflow_query_results_pending ON workflow_query_results(namespace_id, workflow_id, run_id) WHERE completed_at IS NULL;
 
 COMMENT ON TABLE workflow_query_results IS 'Cached query results for workflow state interrogation';
 COMMENT ON COLUMN workflow_query_results.query_name IS 'Name of the query handler';
