@@ -17,22 +17,22 @@ public sealed class TaskQueueRepository : ITaskQueueRepository
         return Task.FromResult(Result.Ok(Guid.NewGuid()));
     }
 
-    public Task<Result<TaskLease?>> PollAsync(string queueName, string workerIdentity, TimeSpan leaseDuration, CancellationToken cancellationToken = default)
+    public Task<Result<TaskLease?>> PollAsync(string queueName, string workerIdentity, CancellationToken cancellationToken = default)
     {
         return Task.FromResult(Result.Ok<TaskLease?>(null));
     }
 
-    public Task<Result<TaskLease>> HeartbeatAsync(Guid leaseId, TimeSpan extendBy, CancellationToken cancellationToken = default)
+    public Task<Result<TaskLease>> HeartbeatAsync(Guid leaseId, CancellationToken cancellationToken = default)
     {
         return Task.FromResult(Result.Fail<TaskLease>(Error.From("Not implemented", OdinErrorCodes.PersistenceError)));
     }
 
-    public Task<Result<Unit>> CompleteAsync(Guid taskId, Guid leaseId, CancellationToken cancellationToken = default)
+    public Task<Result<Unit>> CompleteAsync(Guid leaseId, CancellationToken cancellationToken = default)
     {
         return Task.FromResult(Result.Ok(Unit.Value));
     }
 
-    public Task<Result<Unit>> FailAsync(Guid taskId, Guid leaseId, string reason, bool requeue = true, CancellationToken cancellationToken = default)
+    public Task<Result<Unit>> FailAsync(Guid leaseId, string reason, bool requeue = true, CancellationToken cancellationToken = default)
     {
         return Task.FromResult(Result.Ok(Unit.Value));
     }

@@ -1,3 +1,4 @@
+using System.Threading;
 using Hugo;
 using Microsoft.Extensions.Logging;
 using Odin.Contracts;
@@ -66,11 +67,16 @@ public sealed class MatchingService : IMatchingService
     {
         try
         {
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            if (leaseTimeout > TimeSpan.Zero)
+            {
+                linkedCts.CancelAfter(leaseTimeout);
+            }
+
             return (await _taskQueueRepository.PollAsync(
                 queueName,
                 workerIdentity,
-                leaseTimeout,
-                cancellationToken).ConfigureAwait(false))
+                linkedCts.Token).ConfigureAwait(false))
                 .TapError(error => _logger.LogError(
                     "Failed to poll queue {QueueName}: {Error}",
                     queueName,
@@ -109,7 +115,6 @@ public sealed class MatchingService : IMatchingService
         {
             return (await _taskQueueRepository.HeartbeatAsync(
                 leaseId,
-                extendBy,
                 cancellationToken).ConfigureAwait(false))
                 .TapError(error => _logger.LogWarning(
                     "Failed to heartbeat lease {LeaseId}: {Error}",
@@ -130,31 +135,27 @@ public sealed class MatchingService : IMatchingService
     /// Completes a task and removes it from the queue.
     /// </summary>
     public async Task<Result<Unit>> CompleteTaskAsync(
-        Guid taskId,
         Guid leaseId,
         CancellationToken cancellationToken = default)
     {
         try
         {
             return (await _taskQueueRepository.CompleteAsync(
-                taskId,
                 leaseId,
                 cancellationToken).ConfigureAwait(false))
                 .TapError(error => _logger.LogWarning(
-                    "Failed to complete task {TaskId} with lease {LeaseId}: {Error}",
-                    taskId,
+                    "Failed to complete lease {LeaseId}: {Error}",
                     leaseId,
                     error.Message))
                 .Tap(_ => _logger.LogDebug(
-                    "Completed task {TaskId} with lease {LeaseId}",
-                    taskId,
+                    "Completed lease {LeaseId}",
                     leaseId));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex,
-                "Unexpected error completing task {TaskId}",
-                taskId);
+                "Unexpected error completing lease {LeaseId}",
+                leaseId);
             return Result.Fail<Unit>(
                 Error.From($"Complete failed: {ex.Message}", OdinErrorCodes.TaskQueueError));
         }
@@ -164,7 +165,6 @@ public sealed class MatchingService : IMatchingService
     /// Fails a task and optionally re-enqueues for retry.
     /// </summary>
     public async Task<Result<Unit>> FailTaskAsync(
-        Guid taskId,
         Guid leaseId,
         string reason,
         bool requeue = true,
@@ -173,26 +173,25 @@ public sealed class MatchingService : IMatchingService
         try
         {
             return (await _taskQueueRepository.FailAsync(
-                taskId,
                 leaseId,
                 reason,
                 requeue,
                 cancellationToken).ConfigureAwait(false))
                 .TapError(error => _logger.LogWarning(
-                    "Failed to mark task {TaskId} as failed: {Error}",
-                    taskId,
+                    "Failed to mark lease {LeaseId} as failed: {Error}",
+                    leaseId,
                     error.Message))
                 .Tap(_ => _logger.LogWarning(
-                    "Task {TaskId} failed: {Reason} (requeue: {Requeue})",
-                    taskId,
+                    "Lease {LeaseId} failed: {Reason} (requeue: {Requeue})",
+                    leaseId,
                     reason,
                     requeue));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex,
-                "Unexpected error failing task {TaskId}",
-                taskId);
+                "Unexpected error failing lease {LeaseId}",
+                leaseId);
             return Result.Fail<Unit>(
                 Error.From($"Fail task error: {ex.Message}", OdinErrorCodes.TaskQueueError));
         }
@@ -283,12 +282,10 @@ public interface IMatchingService
         CancellationToken cancellationToken = default);
 
     Task<Result<Unit>> CompleteTaskAsync(
-        Guid taskId,
         Guid leaseId,
         CancellationToken cancellationToken = default);
 
     Task<Result<Unit>> FailTaskAsync(
-        Guid taskId,
         Guid leaseId,
         string reason,
         bool requeue = true,

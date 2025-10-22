@@ -24,7 +24,6 @@ public interface ITaskQueueRepository
     Task<Result<TaskLease?>> PollAsync(
         string queueName,
         string workerIdentity,
-        TimeSpan leaseDuration,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -32,14 +31,12 @@ public interface ITaskQueueRepository
     /// </summary>
     Task<Result<TaskLease>> HeartbeatAsync(
         Guid leaseId,
-        TimeSpan extendBy,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Completes a task and removes it from the queue.
     /// </summary>
     Task<Result<Unit>> CompleteAsync(
-        Guid taskId,
         Guid leaseId,
         CancellationToken cancellationToken = default);
 
@@ -47,7 +44,6 @@ public interface ITaskQueueRepository
     /// Fails a task and optionally re-enqueues for retry.
     /// </summary>
     Task<Result<Unit>> FailAsync(
-        Guid taskId,
         Guid leaseId,
         string reason,
         bool requeue = true,

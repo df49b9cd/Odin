@@ -1,3 +1,4 @@
+using System;
 using Hugo;
 using Microsoft.AspNetCore.Mvc;
 using Odin.Contracts;
@@ -89,11 +90,13 @@ public sealed class TaskQueueController : ControllerBase
 
         return Ok(new PollTaskResponse
         {
-            TaskId = taskLease.Task.TaskId.ToString(),
+            LeaseId = taskLease.LeaseId,
+            TaskId = taskLease.LeaseId.ToString(),
             WorkflowId = taskLease.Task.WorkflowId,
             RunId = taskLease.Task.RunId.ToString(),
             ScheduledEventId = taskLease.Task.TaskId,
-            LeasedUntil = taskLease.LeaseExpiresAt.DateTime
+            LeasedUntil = taskLease.LeaseExpiresAt.UtcDateTime,
+            Attempt = taskLease.AttemptCount
         });
     }
 
@@ -104,12 +107,12 @@ public sealed class TaskQueueController : ControllerBase
     /// <param name="request">Heartbeat request</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Success or error</returns>
-    [HttpPost("{taskId}/heartbeat")]
+    [HttpPost("{leaseId:guid}/heartbeat")]
     [ProducesResponseType(typeof(HeartbeatTaskResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> HeartbeatTask(
-        [FromRoute] string taskId,
+        [FromRoute] Guid leaseId,
         [FromBody] HeartbeatTaskRequest request,
         CancellationToken cancellationToken)
     {
@@ -122,16 +125,6 @@ public sealed class TaskQueueController : ControllerBase
             });
         }
 
-        // Parse taskId as Guid (assuming it's the lease ID)
-        if (!Guid.TryParse(taskId, out var leaseId))
-        {
-            return BadRequest(new ErrorResponse
-            {
-                Message = "Invalid task ID format",
-                Code = "INVALID_REQUEST"
-            });
-        }
-
         var result = await _matchingService.HeartbeatTaskAsync(
             leaseId,
             TimeSpan.FromSeconds(request.ExtensionSeconds ?? 30),
@@ -139,8 +132,8 @@ public sealed class TaskQueueController : ControllerBase
 
         if (result.IsFailure)
         {
-            _logger.LogWarning("Failed to heartbeat task {TaskId}: {Error}",
-                taskId, result.Error?.Message);
+            _logger.LogWarning("Failed to heartbeat lease {LeaseId}: {Error}",
+                leaseId, result.Error?.Message);
 
             return NotFound(new ErrorResponse
             {
@@ -152,7 +145,7 @@ public sealed class TaskQueueController : ControllerBase
         return Ok(new HeartbeatTaskResponse
         {
             Success = true,
-            LeasedUntil = result.Value.LeaseExpiresAt.DateTime
+            LeasedUntil = result.Value.LeaseExpiresAt.UtcDateTime
         });
     }
 
@@ -163,12 +156,12 @@ public sealed class TaskQueueController : ControllerBase
     /// <param name="request">Completion request</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Success or error</returns>
-    [HttpPost("{taskId}/complete")]
+    [HttpPost("{leaseId:guid}/complete")]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CompleteTask(
-        [FromRoute] string taskId,
+        [FromRoute] Guid leaseId,
         [FromBody] CompleteTaskRequest request,
         CancellationToken cancellationToken)
     {
@@ -181,26 +174,14 @@ public sealed class TaskQueueController : ControllerBase
             });
         }
 
-        // Parse taskId as Guid  
-        if (!Guid.TryParse(taskId, out var taskGuid))
-        {
-            return BadRequest(new ErrorResponse
-            {
-                Message = "Invalid task ID format",
-                Code = "INVALID_REQUEST"
-            });
-        }
-
-        // For Phase 1, use taskId as both task and lease ID
         var result = await _matchingService.CompleteTaskAsync(
-            taskGuid,
-            taskGuid,
+            leaseId,
             cancellationToken);
 
         if (result.IsFailure)
         {
-            _logger.LogError("Failed to complete task {TaskId}: {Error}",
-                taskId, result.Error?.Message);
+            _logger.LogError("Failed to complete lease {LeaseId}: {Error}",
+                leaseId, result.Error?.Message);
 
             return NotFound(new ErrorResponse
             {
@@ -209,8 +190,8 @@ public sealed class TaskQueueController : ControllerBase
             });
         }
 
-        _logger.LogInformation("Task {TaskId} completed by worker {WorkerIdentity}",
-            taskId, request.WorkerIdentity);
+        _logger.LogInformation("Lease {LeaseId} completed by worker {WorkerIdentity}",
+            leaseId, request.WorkerIdentity);
 
         return Accepted();
     }
@@ -222,12 +203,12 @@ public sealed class TaskQueueController : ControllerBase
     /// <param name="request">Failure request</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Success or error</returns>
-    [HttpPost("{taskId}/fail")]
+    [HttpPost("{leaseId:guid}/fail")]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> FailTask(
-        [FromRoute] string taskId,
+        [FromRoute] Guid leaseId,
         [FromBody] FailTaskRequest request,
         CancellationToken cancellationToken)
     {
@@ -240,28 +221,16 @@ public sealed class TaskQueueController : ControllerBase
             });
         }
 
-        // Parse taskId as Guid
-        if (!Guid.TryParse(taskId, out var taskGuid))
-        {
-            return BadRequest(new ErrorResponse
-            {
-                Message = "Invalid task ID format",
-                Code = "INVALID_REQUEST"
-            });
-        }
-
-        // For Phase 1, use taskId as both task and lease ID
         var result = await _matchingService.FailTaskAsync(
-            taskGuid,
-            taskGuid,
+            leaseId,
             request.Error ?? "Task failed",
             request.Requeue ?? false,
             cancellationToken);
 
         if (result.IsFailure)
         {
-            _logger.LogError("Failed to mark task {TaskId} as failed: {Error}",
-                taskId, result.Error?.Message);
+            _logger.LogError("Failed to mark lease {LeaseId} as failed: {Error}",
+                leaseId, result.Error?.Message);
 
             return NotFound(new ErrorResponse
             {
@@ -270,8 +239,8 @@ public sealed class TaskQueueController : ControllerBase
             });
         }
 
-        _logger.LogWarning("Task {TaskId} failed by worker {WorkerIdentity}: {Error} (requeue={Requeue})",
-            taskId, request.WorkerIdentity, request.Error, request.Requeue);
+        _logger.LogWarning("Lease {LeaseId} failed by worker {WorkerIdentity}: {Error} (requeue={Requeue})",
+            leaseId, request.WorkerIdentity, request.Error, request.Requeue);
 
         return Accepted();
     }
@@ -323,11 +292,13 @@ public sealed record PollTaskRequest
 /// </summary>
 public sealed record PollTaskResponse
 {
+    public required Guid LeaseId { get; init; }
     public required string TaskId { get; init; }
     public required string WorkflowId { get; init; }
     public required string RunId { get; init; }
     public required long ScheduledEventId { get; init; }
     public DateTime? LeasedUntil { get; init; }
+    public int Attempt { get; init; }
 }
 
 /// <summary>
