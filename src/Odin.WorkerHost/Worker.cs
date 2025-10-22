@@ -1,53 +1,50 @@
+using Odin.ExecutionEngine.Matching;
 using Odin.Sdk;
-using Odin.WorkerHost.Infrastructure;
+using OrderProcessing.Shared;
 
 namespace Odin.WorkerHost;
 
 public sealed class Worker(
-    IWorkflowTaskQueue taskQueue,
+    IMatchingService matchingService,
     WorkflowExecutor executor,
     ILogger<Worker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("Worker host started.");
+        var workerIdentity = $"worker-{Environment.MachineName}-{Guid.NewGuid():N}";
+        await using var subscription = await matchingService.SubscribeAsync("orders", workerIdentity, stoppingToken).ConfigureAwait(false);
 
-        while (!stoppingToken.IsCancellationRequested)
+        await foreach (var task in subscription.Reader.ReadAllAsync(stoppingToken))
         {
-            WorkflowTask task;
-
-            try
-            {
-                task = await taskQueue.DequeueAsync(stoppingToken);
-            }
-            catch (TaskCanceledException)
-            {
-                break;
-            }
-
             logger.LogInformation(
-                "Processing workflow {WorkflowId}/{RunId} ({WorkflowType})",
-                task.WorkflowId,
-                task.RunId,
-                task.WorkflowType);
+                "Processing workflow {WorkflowId} (RunId: {RunId})",
+                task.WorkflowTask.WorkflowId,
+                task.WorkflowTask.RunId);
 
-            var result = await executor.ExecuteAsync(task, stoppingToken).ConfigureAwait(false);
+            var result = await executor.ExecuteAsync(task.WorkflowTask, stoppingToken).ConfigureAwait(false);
 
             if (result.IsSuccess)
             {
-                logger.LogInformation(
-                    "Workflow {WorkflowId} completed successfully.",
-                    task.WorkflowId);
+                await task.CompleteAsync(stoppingToken).ConfigureAwait(false);
+
+                if (result.Value is OrderResult order)
+                {
+                    logger.LogInformation(
+                        "Completed order {OrderId} with transaction {TransactionId}",
+                        order.OrderId,
+                        order.TransactionId);
+                }
             }
             else
             {
-                logger.LogError(
+                var reason = result.Error?.Message ?? "Unknown failure";
+                logger.LogWarning(
                     "Workflow {WorkflowId} failed: {Error}",
-                    task.WorkflowId,
-                    result.Error?.Message);
+                    task.WorkflowTask.WorkflowId,
+                    reason);
+
+                await task.FailAsync(reason, requeue: false, stoppingToken).ConfigureAwait(false);
             }
         }
-
-        logger.LogInformation("Worker host stopping.");
     }
 }

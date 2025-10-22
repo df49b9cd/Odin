@@ -1,7 +1,9 @@
 using Microsoft.Extensions.Logging;
+using Odin.ExecutionEngine.Matching;
+using Odin.Persistence.InMemory;
+using Odin.Persistence.Interfaces;
 using Odin.Sdk;
 using Odin.WorkerHost;
-using Odin.WorkerHost.Infrastructure;
 using Odin.WorkerHost.Services;
 using OrderProcessing.Shared;
 using OrderProcessing.Shared.Activities;
@@ -17,11 +19,14 @@ builder.Services.AddLogging(logging =>
     });
 });
 
+builder.Services.AddSingleton<InMemoryTaskQueueRepository>();
+builder.Services.AddSingleton<ITaskQueueRepository>(sp => sp.GetRequiredService<InMemoryTaskQueueRepository>());
+builder.Services.AddSingleton<IMatchingService, MatchingService>();
+
 builder.Services.AddWorkflowRuntime();
 builder.Services.AddWorkflow<OrderProcessingWorkflow, OrderRequest, OrderResult>("order-processing");
 builder.Services.AddTransient<ProcessPaymentActivity>();
 
-builder.Services.AddSingleton<IWorkflowTaskQueue, InMemoryWorkflowTaskQueue>();
 builder.Services.AddHostedService<OrderTaskSeeder>();
 builder.Services.AddHostedService<Worker>();
 

@@ -10,6 +10,7 @@
     <ProjectReference Include="../Odin.Contracts/Odin.Contracts.csproj" />
     <ProjectReference Include="../Odin.Core/Odin.Core.csproj" />
     <ProjectReference Include="../Odin.Persistence/Odin.Persistence.csproj" />
+    <ProjectReference Include="../Odin.Sdk/Odin.Sdk.csproj" />
   </ItemGroup>
 
 </Project>

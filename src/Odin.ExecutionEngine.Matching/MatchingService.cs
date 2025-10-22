@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Threading;
 using Hugo;
 using Microsoft.Extensions.Logging;
@@ -14,10 +15,12 @@ namespace Odin.ExecutionEngine.Matching;
 /// </summary>
 public sealed class MatchingService(
     ITaskQueueRepository taskQueueRepository,
-    ILogger<MatchingService> logger) : IMatchingService
+    ILogger<MatchingService> logger,
+    JsonSerializerOptions? serializerOptions = null) : IMatchingService
 {
     private readonly ITaskQueueRepository _taskQueueRepository = taskQueueRepository;
     private readonly ILogger<MatchingService> _logger = logger;
+    private readonly JsonSerializerOptions _serializerOptions = serializerOptions ?? JsonOptions.Default;
 
     /// <summary>
     /// Enqueues a workflow or activity task.
@@ -253,6 +256,32 @@ public sealed class MatchingService(
                 Error.From($"Reclaim failed: {ex.Message}", OdinErrorCodes.TaskQueueError));
         }
     }
+
+    public Task<MatchingSubscription> SubscribeAsync(
+        string queueName,
+        string workerIdentity,
+        CancellationToken cancellationToken = default)
+    {
+        var dispatcher = new TaskQueueDispatcher(
+            queueName,
+            workerIdentity,
+            _taskQueueRepository,
+            _serializerOptions,
+            _logger);
+
+        if (cancellationToken.CanBeCanceled)
+        {
+#pragma warning disable CS4014
+            cancellationToken.Register(state =>
+            {
+                var d = (TaskQueueDispatcher)state!;
+                _ = d.DisposeAsync();
+            }, dispatcher, useSynchronizationContext: false);
+#pragma warning restore CS4014
+        }
+
+        return Task.FromResult(new MatchingSubscription(dispatcher));
+    }
 }
 
 /// <summary>
@@ -290,6 +319,11 @@ public interface IMatchingService
         CancellationToken cancellationToken = default);
 
     Task<Result<int>> ReclaimExpiredLeasesAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<MatchingSubscription> SubscribeAsync(
+        string queueName,
+        string workerIdentity,
         CancellationToken cancellationToken = default);
 }
 

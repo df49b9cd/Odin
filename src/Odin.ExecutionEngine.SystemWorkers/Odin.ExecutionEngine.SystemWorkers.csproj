@@ -10,4 +10,10 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Odin.ExecutionEngine.Matching\Odin.ExecutionEngine.Matching.csproj" />
+    <ProjectReference Include="..\Odin.Persistence\Odin.Persistence.csproj" />
+    <ProjectReference Include="..\Odin.Sdk\Odin.Sdk.csproj" />
+  </ItemGroup>
 </Project>

@@ -13,6 +13,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Odin.Sdk\Odin.Sdk.csproj" />
+    <ProjectReference Include="..\Odin.ExecutionEngine.Matching\Odin.ExecutionEngine.Matching.csproj" />
+    <ProjectReference Include="..\Odin.Persistence\Odin.Persistence.csproj" />
     <ProjectReference Include="..\..\samples\OrderProcessing.Shared\OrderProcessing.Shared.csproj" />
   </ItemGroup>
 </Project>

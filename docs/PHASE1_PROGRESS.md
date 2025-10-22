@@ -302,8 +302,8 @@ src/Odin.Persistence/
 ### 3. Execution Engine Services
 
 - **Objective**: Stand up History and Matching services that orchestrate shard ownership, task queues, and replay.
-- **Status**: 🧱 Infrastructure groundwork (schemas, shard repository, Go helpers) in place; service implementations pending.
-- **Immediate Focus**: Build HistoryService event pipelines, MatchingService task dispatch leveraging Hugo `TaskQueueChannelAdapter<T>`, and system workers (timer/retry/cleanup).
+- **Status**: ✅ History service persists/replays events; matching dispatch spins through `TaskQueueChannelAdapter<T>` with system workers running timers, retries, and cleanup over shared queues.
+- **Immediate Focus**: Broaden persistence coverage (timer/retry repositories) and integrate the services with Control Plane APIs.
 
 ### 4. Frontend & APIs
 
@@ -342,9 +342,9 @@ src/Odin.Persistence/
 
 ### Priority 3: Execution Engine
 
-- [ ] Build HistoryService with event persistence and replay
-- [ ] Build `MatchingService` with `TaskQueueChannelAdapter<T>`
-- [ ] Implement system workers (TimerWorker, RetryWorker, CleanupWorker)
+- [x] Build HistoryService with event persistence and replay
+- [x] Build `MatchingService` with `TaskQueueChannelAdapter<T>`
+- [x] Implement system workers (TimerWorker, RetryWorker, CleanupWorker)
 
 ### Priority 4: APIs
 
