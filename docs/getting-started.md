@@ -119,11 +119,15 @@ public class HelloWorldWorkflow : IWorkflow
 public class GreetingActivity : IActivity<string, string>
 {
     public async Task<Result<string>> ExecuteAsync(
+    public Task<Result<string>> ExecuteAsync(
         string name,
         CancellationToken cancellationToken)
     {
         await Task.Delay(100); // Simulate work
         return Result.Ok($"Hello, {name}!");
+        // Use Hugo's deterministic delay for testability
+        await DelayAsync(TimeSpan.FromMilliseconds(100), cancellationToken);
+        return Task.FromResult(Result.Ok($"Hello, {name}!"));
     }
 }
 ```

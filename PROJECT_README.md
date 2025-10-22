@@ -137,6 +137,7 @@ See [configuration documentation](docs/configuration.md) for all options.
 ### Define a Workflow
 
 ```csharp
+using Odin.Sdk;
 using static Hugo.Go;
 using Odin.Sdk;
 

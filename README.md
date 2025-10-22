@@ -120,6 +120,8 @@ See [Service Blueprint](Service%20Blueprint.md) for the full roadmap.
 ## Example Workflow
 
 ```csharp
+using static Hugo.Go;
+using Hugo;
 using Odin.Sdk;
 
 public class OrderWorkflow : IWorkflow<OrderRequest, OrderResult>
