@@ -12,4 +12,8 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Odin.Core\Odin.Core.csproj" />
+  </ItemGroup>
+
 </Project>

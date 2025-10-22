@@ -12,4 +12,14 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Testcontainers.PostgreSql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Odin.Persistence\Odin.Persistence.csproj" />
+    <ProjectReference Include="..\..\src\Odin.Contracts\Odin.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Odin.Core\Odin.Core.csproj" />
+  </ItemGroup>
+
 </Project>
