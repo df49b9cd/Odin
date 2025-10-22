@@ -9,8 +9,8 @@ using Odin.Contracts;
 using Odin.Core;
 using Odin.Persistence.Interfaces;
 using static Hugo.Go;
-using WorkflowExecution = Odin.Contracts.WorkflowExecution;
 using ContractsWorkflowStatus = Odin.Contracts.WorkflowStatus;
+using WorkflowExecution = Odin.Contracts.WorkflowExecution;
 
 namespace Odin.Persistence.Repositories;
 
