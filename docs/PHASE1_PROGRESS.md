@@ -96,7 +96,7 @@ Implemented reusable helpers anchored on Hugo primitives:
   - Pretty-print options for debugging
   - Convenience methods for serialize/deserialize
 
-**Outstanding**: Planned `ResultExtensions` helper methods for Result<T> composition are not yet implemented and remain on the roadmap.
+**Note**: Hugo’s built-in `Result` and `Functional` APIs already cover the fluent composition scenarios we need; custom `ResultExtensions` remain optional and will be revisited only if Odin-specific helpers emerge.
 
 **Build Configuration**: Central package management pins Hugo 1.0.0 and Microsoft.Extensions.Logging.Abstractions 10.0.0-rc.2.
 
@@ -260,7 +260,6 @@ src/Odin.Persistence/
 ## Roadmap Update (Remaining Phase 1)
 
 ### Priority 0: Core Utility Follow-up
-- [ ] Implement `ResultExtensions` helper extensions for Result<T> composition
 - [ ] Add unit coverage for `GoHelpers`, `HashingUtilities`, and `JsonOptions`
 
 ### Priority 1: Complete Persistence Implementation
@@ -319,9 +318,9 @@ src/Odin.Persistence/
 
 ## Technical Debt and Warnings
 
-1. **ResultExtensions Helper Missing**  
-   - **Impact**: Limits fluent Result<T> composition in core/worker layers  
-   - **Resolution**: Implement helper extensions and add unit coverage (Priority 0)
+1. **ResultExtensions Helper Deferred**  
+   - **Impact**: None currently; Hugo’s `Result`/`Functional` APIs meet composition needs  
+   - **Resolution**: Reassess if Odin-specific Result helpers become necessary
 
 2. **SQL Repository Methods Stubbed**  
    - **Impact**: Workflow, history, task queue, and visibility persistence paths not wired to database  
