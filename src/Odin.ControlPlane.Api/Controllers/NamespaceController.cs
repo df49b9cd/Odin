@@ -93,6 +93,8 @@ public sealed class NamespaceController : ControllerBase
     /// <summary>
     /// List all namespaces.
     /// </summary>
+    /// <param name="pageSize"></param>
+    /// <param name="pageToken"></param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>List of namespaces</returns>
     [HttpGet]

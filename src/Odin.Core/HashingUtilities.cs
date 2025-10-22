@@ -23,13 +23,13 @@ public static class HashingUtilities
 
         // Use SHA256 for consistent hashing
         var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(workflowId));
-        
+
         // Convert first 8 bytes to a long
         var hashValue = BitConverter.ToInt64(hashBytes, 0);
-        
+
         // Ensure positive value and calculate modulo
         var positiveHash = hashValue == long.MinValue ? long.MaxValue : Math.Abs(hashValue);
-        
+
         return (int)(positiveHash % shardCount);
     }
 
@@ -46,7 +46,7 @@ public static class HashingUtilities
 
         var hashCode = taskQueueName.GetHashCode();
         var positiveHash = hashCode == int.MinValue ? int.MaxValue : Math.Abs(hashCode);
-        
+
         return positiveHash % partitionCount;
     }
 

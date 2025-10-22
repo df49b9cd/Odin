@@ -22,7 +22,9 @@ public sealed class PostgreSqlConnectionFactory : IDbConnectionFactory
         ILogger<PostgreSqlConnectionFactory> logger)
     {
         if (string.IsNullOrWhiteSpace(connectionString))
+        {
             throw new ArgumentException("Connection string cannot be empty", nameof(connectionString));
+        }
 
         _connectionString = connectionString;
         _logger = logger;

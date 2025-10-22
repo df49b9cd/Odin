@@ -1,12 +1,12 @@
+using System.Data;
 using Hugo;
+using Npgsql;
 using Odin.Core;
 using Odin.ExecutionEngine.History;
 using Odin.ExecutionEngine.Matching;
 using Odin.Persistence;
 using Odin.Persistence.Interfaces;
 using Odin.Persistence.Repositories;
-using Npgsql;
-using System.Data;
 using static Hugo.Go;
 
 var builder = WebApplication.CreateBuilder(args);

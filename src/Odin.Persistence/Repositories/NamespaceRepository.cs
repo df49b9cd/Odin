@@ -1,11 +1,11 @@
+using System.Data;
+using System.Text.Json;
 using Dapper;
 using Hugo;
 using Microsoft.Extensions.Logging;
 using Odin.Contracts;
 using Odin.Core;
 using Odin.Persistence.Interfaces;
-using System.Data;
-using System.Text.Json;
 using static Hugo.Go;
 
 namespace Odin.Persistence.Repositories;
@@ -33,7 +33,9 @@ public sealed class NamespaceRepository : INamespaceRepository
     {
         var connectionResult = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         if (connectionResult.IsFailure)
+        {
             return Result.Fail<Namespace>(connectionResult.Error!);
+        }
 
         using var connection = connectionResult.Value;
 
@@ -88,7 +90,9 @@ public sealed class NamespaceRepository : INamespaceRepository
     {
         var connectionResult = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         if (connectionResult.IsFailure)
+        {
             return Result.Fail<Namespace>(connectionResult.Error!);
+        }
 
         using var connection = connectionResult.Value;
 
@@ -127,7 +131,9 @@ public sealed class NamespaceRepository : INamespaceRepository
     {
         var connectionResult = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         if (connectionResult.IsFailure)
+        {
             return Result.Fail<Namespace>(connectionResult.Error!);
+        }
 
         using var connection = connectionResult.Value;
 
@@ -167,7 +173,9 @@ public sealed class NamespaceRepository : INamespaceRepository
     {
         var connectionResult = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         if (connectionResult.IsFailure)
+        {
             return Result.Fail<Namespace>(connectionResult.Error!);
+        }
 
         using var connection = connectionResult.Value;
 
@@ -220,7 +228,9 @@ public sealed class NamespaceRepository : INamespaceRepository
     {
         var connectionResult = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         if (connectionResult.IsFailure)
+        {
             return Result.Fail<ListNamespacesResponse>(connectionResult.Error!);
+        }
 
         using var connection = connectionResult.Value;
 
@@ -264,7 +274,9 @@ public sealed class NamespaceRepository : INamespaceRepository
     {
         var connectionResult = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         if (connectionResult.IsFailure)
+        {
             return Result.Fail<bool>(connectionResult.Error!);
+        }
 
         using var connection = connectionResult.Value;
 
@@ -293,7 +305,9 @@ public sealed class NamespaceRepository : INamespaceRepository
     {
         var connectionResult = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         if (connectionResult.IsFailure)
+        {
             return Result.Fail<Unit>(connectionResult.Error!);
+        }
 
         using var connection = connectionResult.Value;
 

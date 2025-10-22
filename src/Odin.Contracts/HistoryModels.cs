@@ -50,35 +50,35 @@ public static class WorkflowEventType
     public const string WorkflowExecutionCanceled = "WorkflowExecutionCanceled";
     public const string WorkflowExecutionTerminated = "WorkflowExecutionTerminated";
     public const string WorkflowExecutionContinuedAsNew = "WorkflowExecutionContinuedAsNew";
-    
+
     public const string WorkflowTaskScheduled = "WorkflowTaskScheduled";
     public const string WorkflowTaskStarted = "WorkflowTaskStarted";
     public const string WorkflowTaskCompleted = "WorkflowTaskCompleted";
     public const string WorkflowTaskTimedOut = "WorkflowTaskTimedOut";
     public const string WorkflowTaskFailed = "WorkflowTaskFailed";
-    
+
     public const string ActivityTaskScheduled = "ActivityTaskScheduled";
     public const string ActivityTaskStarted = "ActivityTaskStarted";
     public const string ActivityTaskCompleted = "ActivityTaskCompleted";
     public const string ActivityTaskFailed = "ActivityTaskFailed";
     public const string ActivityTaskTimedOut = "ActivityTaskTimedOut";
     public const string ActivityTaskCanceled = "ActivityTaskCanceled";
-    
+
     public const string TimerStarted = "TimerStarted";
     public const string TimerFired = "TimerFired";
     public const string TimerCanceled = "TimerCanceled";
-    
+
     public const string SignalExternalWorkflowExecutionInitiated = "SignalExternalWorkflowExecutionInitiated";
     public const string SignalExternalWorkflowExecutionFailed = "SignalExternalWorkflowExecutionFailed";
     public const string WorkflowExecutionSignaled = "WorkflowExecutionSignaled";
-    
+
     public const string ChildWorkflowExecutionStarted = "ChildWorkflowExecutionStarted";
     public const string ChildWorkflowExecutionCompleted = "ChildWorkflowExecutionCompleted";
     public const string ChildWorkflowExecutionFailed = "ChildWorkflowExecutionFailed";
     public const string ChildWorkflowExecutionCanceled = "ChildWorkflowExecutionCanceled";
     public const string ChildWorkflowExecutionTimedOut = "ChildWorkflowExecutionTimedOut";
     public const string ChildWorkflowExecutionTerminated = "ChildWorkflowExecutionTerminated";
-    
+
     public const string MarkerRecorded = "MarkerRecorded";
     public const string UpsertWorkflowSearchAttributes = "UpsertWorkflowSearchAttributes";
 }

@@ -1,9 +1,9 @@
+using System.Data;
 using Dapper;
 using Hugo;
 using Microsoft.Extensions.Logging;
 using Odin.Core;
 using Odin.Persistence.Interfaces;
-using System.Data;
 using static Hugo.Go;
 
 namespace Odin.Persistence.Repositories;
@@ -33,7 +33,9 @@ public sealed class ShardRepository : IShardRepository
     {
         var connectionResult = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         if (connectionResult.IsFailure)
+        {
             return Result.Fail<ShardLease>(connectionResult.Error!);
+        }
 
         using var connection = connectionResult.Value;
 
@@ -105,7 +107,9 @@ public sealed class ShardRepository : IShardRepository
     {
         var connectionResult = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         if (connectionResult.IsFailure)
+        {
             return Result.Fail<ShardLease>(connectionResult.Error!);
+        }
 
         using var connection = connectionResult.Value;
 
@@ -161,7 +165,9 @@ public sealed class ShardRepository : IShardRepository
     {
         var connectionResult = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         if (connectionResult.IsFailure)
+        {
             return Result.Fail<Unit>(connectionResult.Error!);
+        }
 
         using var connection = connectionResult.Value;
 
@@ -211,7 +217,9 @@ public sealed class ShardRepository : IShardRepository
     {
         var connectionResult = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         if (connectionResult.IsFailure)
+        {
             return Result.Fail<ShardLease?>(connectionResult.Error!);
+        }
 
         using var connection = connectionResult.Value;
 
@@ -247,7 +255,9 @@ public sealed class ShardRepository : IShardRepository
     {
         var connectionResult = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         if (connectionResult.IsFailure)
+        {
             return Result.Fail<IReadOnlyList<int>>(connectionResult.Error!);
+        }
 
         using var connection = connectionResult.Value;
 
@@ -289,7 +299,9 @@ public sealed class ShardRepository : IShardRepository
     {
         var connectionResult = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         if (connectionResult.IsFailure)
+        {
             return Result.Fail<IReadOnlyList<ShardLease>>(connectionResult.Error!);
+        }
 
         using var connection = connectionResult.Value;
 
@@ -320,7 +332,9 @@ public sealed class ShardRepository : IShardRepository
     {
         var connectionResult = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         if (connectionResult.IsFailure)
+        {
             return Result.Fail<int>(connectionResult.Error!);
+        }
 
         using var connection = connectionResult.Value;
 
@@ -358,7 +372,9 @@ public sealed class ShardRepository : IShardRepository
     {
         var connectionResult = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         if (connectionResult.IsFailure)
+        {
             return Result.Fail<Unit>(connectionResult.Error!);
+        }
 
         using var connection = connectionResult.Value;
 
