@@ -4,8 +4,8 @@ using Microsoft.Extensions.Logging;
 using Odin.Contracts;
 using Odin.Core;
 using Odin.Persistence.Interfaces;
-using static Hugo.Go;
 using static Hugo.Functional;
+using static Hugo.Go;
 
 namespace Odin.ExecutionEngine.History;
 

@@ -3,9 +3,9 @@ using Hugo;
 using Odin.Contracts;
 using Odin.Core;
 using Odin.Persistence.Interfaces;
+using static Hugo.Go;
 using CWorkflowExecution = Odin.Contracts.WorkflowExecution;
 using CWorkflowStatus = Odin.Contracts.WorkflowStatus;
-using static Hugo.Go;
 
 namespace Odin.Persistence.InMemory;
 

@@ -5,8 +5,8 @@ using Microsoft.AspNetCore.Mvc;
 using Odin.Core;
 using Odin.ExecutionEngine.History;
 using Odin.Persistence.Interfaces;
-using static Hugo.Go;
 using static Hugo.Functional;
+using static Hugo.Go;
 using WorkflowExecutionModel = Odin.Contracts.WorkflowExecution;
 
 namespace Odin.ControlPlane.Api.Controllers;

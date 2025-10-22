@@ -97,7 +97,7 @@ public sealed class TaskQueueController(
     /// <summary>
     /// Send a heartbeat to extend task lease.
     /// </summary>
-    /// <param name="taskId">Task ID</param>
+    /// <param name="leaseId"></param>
     /// <param name="request">Heartbeat request</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Success or error</returns>
@@ -146,7 +146,7 @@ public sealed class TaskQueueController(
     /// <summary>
     /// Complete a task successfully.
     /// </summary>
-    /// <param name="taskId">Task ID</param>
+    /// <param name="leaseId"></param>
     /// <param name="request">Completion request</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Success or error</returns>
@@ -193,7 +193,7 @@ public sealed class TaskQueueController(
     /// <summary>
     /// Fail a task with optional retry.
     /// </summary>
-    /// <param name="taskId">Task ID</param>
+    /// <param name="leaseId"></param>
     /// <param name="request">Failure request</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Success or error</returns>

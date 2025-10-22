@@ -9,6 +9,7 @@ The initial project structure for the Hugo Durable Orchestrator (Odin) has been 
 Created a complete .NET 10 solution with the following projects:
 
 **Source Projects (12)**:
+
 - `Odin.Contracts` - Shared DTOs and contracts
 - `Odin.Core` - Core utilities and extensions
 - `Odin.Persistence` - Data access layer
@@ -23,12 +24,14 @@ Created a complete .NET 10 solution with the following projects:
 - `Odin.Cli` - Command-line tool
 
 **Test Projects (4)**:
+
 - `Odin.Core.Tests` - Unit tests for core
 - `Odin.Sdk.Tests` - Unit tests for SDK
 - `Odin.ExecutionEngine.Tests` - Unit tests for execution engine
 - `Odin.Integration.Tests` - End-to-end integration tests
 
 **Sample Projects (1)**:
+
 - `OrderProcessing.Sample` - Example order processing workflow
 
 **Build Status**: ✅ All projects compile successfully
@@ -36,6 +39,7 @@ Created a complete .NET 10 solution with the following projects:
 ### 2. Deployment Infrastructure
 
 **Docker**:
+
 - Multi-stage Dockerfile with separate targets for each service
 - Docker Compose configuration with full stack:
   - PostgreSQL 14
@@ -47,12 +51,14 @@ Created a complete .NET 10 solution with the following projects:
   - All Odin services (gRPC, API, Workers)
 
 **Kubernetes/Helm**:
+
 - Helm chart structure (`deployment/helm/`)
 - Chart.yaml with project metadata
 - values.yaml with configurable deployment options
 - Support for PostgreSQL and Elasticsearch dependencies
 
 **Configuration**:
+
 - OpenTelemetry Collector config
 - Prometheus scrape configuration
 - Grafana datasource provisioning
@@ -63,12 +69,14 @@ Created a complete .NET 10 solution with the following projects:
 Created comprehensive documentation structure:
 
 **Root Level**:
+
 - `README.md` - Main project README with quick start
 - `CONTRIBUTING.md` - Contribution guidelines
 - `LICENSE` - MIT License
 - `Service Blueprint.md` - Original service design document
 
 **Documentation Directory** (`docs/`):
+
 - `getting-started.md` - Step-by-step setup and first workflow
 - `PROJECT_STRUCTURE.md` - Detailed project organization guide
 - `architecture/README.md` - Architecture overview and patterns
@@ -78,22 +86,26 @@ Created comprehensive documentation structure:
 ### 4. Development Configuration
 
 **Build Configuration**:
+
 - `Directory.Build.props` - Common MSBuild properties
 - `global.json` - .NET SDK version pinning
 - `.editorconfig` - Code style and formatting rules
 
 **CI/CD**:
+
 - GitHub Actions workflow (`.github/workflows/ci.yml`)
 - Automated build, test, and Docker image creation
 - Code coverage collection
 
 **Git Configuration**:
+
 - `.gitignore` - Comprehensive ignore rules
 - `.github/copilot-instructions.md` - AI assistant guidelines
 
 ### 5. Code Foundations
 
 Created initial code files demonstrating structure:
+
 - `WorkflowContracts.cs` - Request/response DTOs
 - `Interfaces.cs` - IWorkflow and IActivity interfaces
 - `OrderProcessingWorkflow.cs` - Example workflow
@@ -175,6 +187,7 @@ dotnet test
 ## Configuration
 
 Key environment variables (see `.env.example`):
+
 ```bash
 HUGO_ORCHESTRATOR_DB_CONNECTION=Server=localhost;Database=orchestrator;
 HUGO_ORCHESTRATOR_ELASTICSEARCH_URL=http://localhost:9200
@@ -194,9 +207,9 @@ HUGO_ORCHESTRATOR_HISTORY_RETENTION_DAYS=30
 
 ## Resources
 
-- Hugo Library: https://github.com/df49b9cd/Hugo
-- Temporal Documentation: https://docs.temporal.io/
-- Project Repository: https://github.com/df49b9cd/Odin
+- Hugo Library: <https://github.com/df49b9cd/Hugo>
+- Temporal Documentation: <https://docs.temporal.io/>
+- Project Repository: <https://github.com/df49b9cd/Odin>
 
 ---
 
