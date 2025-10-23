@@ -104,6 +104,16 @@ curl -X POST http://localhost:8080/api/v1/namespaces \
   -d '{"name": "default", "description": "Default namespace"}'
 ```
 
+### Optional: Run the UI via Docker Compose
+
+To launch the Vite dev server inside Docker (useful if Node.js is not installed locally), enable the `ui` profile:
+
+```bash
+docker-compose --profile core --profile ui up odin-api odin-ui
+```
+
+The UI will be available at http://localhost:5173 and proxies API calls to the `odin-api` container.
+
 ## Creating Your First Workflow
 
 ### 1. Create a New Project

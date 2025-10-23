@@ -174,6 +174,23 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  # Odin Control Plane UI (optional dev server)
+  odin-ui:
+    profiles: ["ui"]
+    image: node:20
+    working_dir: /workspace
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_BASE_URL=http://odin-api:8080/api/v1
+      - CHOKIDAR_USEPOLLING=1
+    volumes:
+      - ./src/Odin.ControlPlane.Ui:/workspace
+    depends_on:
+      odin-api:
+        condition: service_started
+
 volumes:
   postgres-data:
   elasticsearch-data:

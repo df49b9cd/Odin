@@ -62,6 +62,8 @@ pnpm-lock.yaml
 package-lock.json
 yarn.lock
 dist/
+src/Odin.ControlPlane.Api/wwwroot/*
+!src/Odin.ControlPlane.Api/wwwroot/.gitkeep
 *.tsbuildinfo
 
 # Deployment

@@ -36,9 +36,25 @@ COPY . .
 # Build solution
 RUN dotnet build -c Release --no-restore
 
+# UI build stage
+FROM node:20-alpine AS ui-build
+WORKDIR /workspace
+
+# Install dependencies
+COPY src/Odin.ControlPlane.Ui/package*.json src/Odin.ControlPlane.Ui/
+RUN cd src/Odin.ControlPlane.Ui && npm ci
+
+# Copy UI source
+COPY src/Odin.ControlPlane.Ui src/Odin.ControlPlane.Ui
+RUN mkdir -p src/Odin.ControlPlane.Api/wwwroot
+
+# Build production assets
+RUN cd src/Odin.ControlPlane.Ui && npm run build
+
 # Publish stage - Control Plane API
 FROM build AS publish-api
 RUN dotnet publish src/Odin.ControlPlane.Api/Odin.ControlPlane.Api.csproj -c Release -o /app/publish/api --no-build
+COPY --from=ui-build /workspace/src/Odin.ControlPlane.Api/wwwroot /app/publish/api/wwwroot
 
 # Publish stage - gRPC Service
 FROM build AS publish-grpc
