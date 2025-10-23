@@ -23,6 +23,7 @@
     <Project Path="src/Odin.WorkerHost/Odin.WorkerHost.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Odin.ControlPlane.Grpc.Tests/Odin.ControlPlane.Grpc.Tests.csproj" />
     <Project Path="tests/Odin.Core.Tests/Odin.Core.Tests.csproj" />
     <Project Path="tests/Odin.ExecutionEngine.Tests/Odin.ExecutionEngine.Tests.csproj" />
     <Project Path="tests/Odin.Integration.Tests/Odin.Integration.Tests.csproj" />

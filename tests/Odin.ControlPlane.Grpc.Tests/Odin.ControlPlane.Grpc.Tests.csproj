@@ -13,17 +13,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Testcontainers.PostgreSql" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
-    <PackageReference Include="Grpc.Net.Client" />
+    <PackageReference Include="Grpc.Core.Testing" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Odin.ControlPlane.Grpc\Odin.ControlPlane.Grpc.csproj" />
+    <ProjectReference Include="..\..\src\Odin.Core\Odin.Core.csproj" />
     <ProjectReference Include="..\..\src\Odin.Persistence\Odin.Persistence.csproj" />
     <ProjectReference Include="..\..\src\Odin.Contracts\Odin.Contracts.csproj" />
-    <ProjectReference Include="..\..\src\Odin.Core\Odin.Core.csproj" />
-    <ProjectReference Include="..\..\src\Odin.ControlPlane.Api\Odin.ControlPlane.Api.csproj" Aliases="api" />
-    <ProjectReference Include="..\..\src\Odin.ControlPlane.Grpc\Odin.ControlPlane.Grpc.csproj" Aliases="grpc" />
   </ItemGroup>
 
 </Project>
