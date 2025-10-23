@@ -1,7 +1,10 @@
+using System;
 using Hugo;
 using Microsoft.AspNetCore.Mvc;
+using Odin.Core;
 using Odin.Persistence.Interfaces;
 using static Hugo.Go;
+using static Hugo.Functional;
 using NamespaceModel = Odin.Contracts.Namespace;
 
 namespace Odin.ControlPlane.Api.Controllers;
@@ -33,55 +36,40 @@ public sealed class NamespaceController(
         [FromBody] CreateNamespaceRequest request,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Name))
-        {
-            return BadRequest(new ErrorResponse
+        var createPipeline = await Go.Ok(request)
+            .Ensure(static r => !string.IsNullOrWhiteSpace(r.Name),
+                static _ => Error.From("Namespace name is required", "INVALID_REQUEST"))
+            .Ensure(static r => r.RetentionDays is null or > 0,
+                static _ => Error.From("Retention days must be positive", "INVALID_REQUEST"))
+            .Map(r => new Odin.Contracts.CreateNamespaceRequest
             {
-                Message = "Namespace name is required",
-                Code = "INVALID_REQUEST"
-            });
-        }
+                NamespaceName = r.Name,
+                Description = r.Description,
+                RetentionDays = r.RetentionDays ?? 30,
+                HistoryArchivalEnabled = false,
+                VisibilityArchivalEnabled = false
+            })
+            .ThenAsync((payload, ct) => _namespaceRepository.CreateAsync(payload, ct), cancellationToken)
+            .ConfigureAwait(false);
 
-        var createRequest = new Odin.Contracts.CreateNamespaceRequest
-        {
-            NamespaceName = request.Name,
-            Description = request.Description,
-            RetentionDays = request.RetentionDays ?? 30,
-            HistoryArchivalEnabled = false,
-            VisibilityArchivalEnabled = false
-        };
+        var createResult = createPipeline
+            .OnSuccess(namespaceModel => _logger.LogInformation(
+                "Created namespace {Name} with ID {Id}",
+                namespaceModel.NamespaceName,
+                namespaceModel.NamespaceId))
+            .OnFailure(error => _logger.LogError(
+                "Failed to create namespace {Name}: {Error}",
+                request.Name,
+                error.Message));
 
-        var result = await _namespaceRepository.CreateAsync(createRequest, cancellationToken);
-
-        if (result.IsFailure)
-        {
-            _logger.LogError("Failed to create namespace {Name}: {Error}",
-                request.Name, result.Error?.Message);
-
-            // Check if duplicate
-            if (result.Error?.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase) == true)
-            {
-                return Conflict(new ErrorResponse
-                {
-                    Message = $"Namespace '{request.Name}' already exists",
-                    Code = "NAMESPACE_ALREADY_EXISTS"
-                });
-            }
-
-            return BadRequest(new ErrorResponse
-            {
-                Message = result.Error?.Message ?? "Failed to create namespace",
-                Code = result.Error?.Code ?? "CREATE_FAILED"
-            });
-        }
-
-        _logger.LogInformation("Created namespace {Name} with ID {Id}",
-            result.Value.NamespaceName, result.Value.NamespaceId);
-
-        return CreatedAtAction(
-            nameof(GetNamespace),
-            new { id = result.Value.NamespaceId },
-            result.Value);
+        return createResult.Match<IActionResult>(
+            model => CreatedAtAction(
+                nameof(GetNamespace),
+                new { id = model.NamespaceId },
+                model),
+            error => string.Equals(error.Code, OdinErrorCodes.NamespaceAlreadyExists, StringComparison.OrdinalIgnoreCase)
+                ? Conflict(AsErrorResponse(error, OdinErrorCodes.NamespaceAlreadyExists, $"Namespace '{request.Name}' already exists"))
+                : BadRequest(AsErrorResponse(error, error.Code ?? "CREATE_FAILED", error.Message ?? "Failed to create namespace")));
     }
 
     /// <summary>
@@ -98,19 +86,19 @@ public sealed class NamespaceController(
         [FromQuery] string? pageToken = null,
         CancellationToken cancellationToken = default)
     {
-        var result = await _namespaceRepository.ListAsync(pageSize, pageToken, cancellationToken);
+        var listPipeline = await _namespaceRepository.ListAsync(pageSize, pageToken, cancellationToken)
+            .ConfigureAwait(false);
 
-        if (result.IsFailure)
-        {
-            _logger.LogError("Failed to list namespaces: {Error}", result.Error?.Message);
-            return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
-            {
-                Message = "Failed to list namespaces",
-                Code = "LIST_FAILED"
-            });
-        }
+        var listResult = listPipeline
+            .OnFailure(error => _logger.LogError(
+                "Failed to list namespaces: {Error}",
+                error.Message));
 
-        return Ok(result.Value);
+        return listResult.Match<IActionResult>(
+            response => Ok(response),
+            error => StatusCode(
+                StatusCodes.Status500InternalServerError,
+                AsErrorResponse(error, "LIST_FAILED", "Failed to list namespaces")));
     }
 
     /// <summary>
@@ -126,18 +114,15 @@ public sealed class NamespaceController(
         [FromRoute] Guid id,
         CancellationToken cancellationToken)
     {
-        var result = await _namespaceRepository.GetByIdAsync(id, cancellationToken);
+        var getResult = await _namespaceRepository.GetByIdAsync(id, cancellationToken)
+            .ConfigureAwait(false);
 
-        if (result.IsFailure)
-        {
-            return NotFound(new ErrorResponse
-            {
-                Message = $"Namespace '{id}' not found",
-                Code = "NAMESPACE_NOT_FOUND"
-            });
-        }
-
-        return Ok(result.Value);
+        return getResult.Match<IActionResult>(
+            model => Ok(model),
+            error => NotFound(AsErrorResponse(
+                error,
+                error.Code ?? OdinErrorCodes.NamespaceNotFound,
+                $"Namespace '{id}' not found")));
     }
 
     /// <summary>
@@ -153,18 +138,15 @@ public sealed class NamespaceController(
         [FromRoute] string name,
         CancellationToken cancellationToken)
     {
-        var result = await _namespaceRepository.GetByNameAsync(name, cancellationToken);
+        var getResult = await _namespaceRepository.GetByNameAsync(name, cancellationToken)
+            .ConfigureAwait(false);
 
-        if (result.IsFailure)
-        {
-            return NotFound(new ErrorResponse
-            {
-                Message = $"Namespace '{name}' not found",
-                Code = "NAMESPACE_NOT_FOUND"
-            });
-        }
-
-        return Ok(result.Value);
+        return getResult.Match<IActionResult>(
+            model => Ok(model),
+            error => NotFound(AsErrorResponse(
+                error,
+                error.Code ?? OdinErrorCodes.NamespaceNotFound,
+                $"Namespace '{name}' not found")));
     }
 
     /// <summary>
@@ -181,34 +163,49 @@ public sealed class NamespaceController(
         [FromRoute] Guid id,
         CancellationToken cancellationToken)
     {
-        // Check if namespace exists
-        var getResult = await _namespaceRepository.GetByIdAsync(id, cancellationToken);
-        if (getResult.IsFailure)
+        var namespaceResult = await Go.Ok(id)
+            .ThenAsync((namespaceId, ct) => _namespaceRepository.GetByIdAsync(namespaceId, ct), cancellationToken)
+            .ConfigureAwait(false);
+
+        var archivePipeline = await namespaceResult
+            .Map(model => model.NamespaceName)
+            .ThenAsync((namespaceName, ct) => _namespaceRepository.ArchiveAsync(namespaceName, ct), cancellationToken)
+            .ConfigureAwait(false);
+
+        var deleteResult = archivePipeline
+            .OnSuccess(_ => _logger.LogInformation("Deleted namespace {Id}", id))
+            .OnFailure(error => _logger.LogError(
+                "Failed to delete namespace {Id}: {Error}",
+                id,
+                error.Message));
+
+        return deleteResult.Match<IActionResult>(
+            _ => NoContent(),
+            error => string.Equals(error.Code, OdinErrorCodes.NamespaceNotFound, StringComparison.OrdinalIgnoreCase)
+                ? NotFound(AsErrorResponse(
+                    error,
+                    OdinErrorCodes.NamespaceNotFound,
+                    $"Namespace '{id}' not found"))
+                : BadRequest(AsErrorResponse(
+                    error,
+                    error.Code ?? "DELETE_FAILED",
+                    error.Message ?? "Failed to delete namespace")));
+    }
+    
+    private static ErrorResponse AsErrorResponse(
+        Error error,
+        string fallbackCode,
+        string fallbackMessage)
+    {
+        return new ErrorResponse
         {
-            return NotFound(new ErrorResponse
-            {
-                Message = $"Namespace '{id}' not found",
-                Code = "NAMESPACE_NOT_FOUND"
-            });
-        }
-
-        var deleteResult = await _namespaceRepository.ArchiveAsync(getResult.Value.NamespaceName, cancellationToken);
-
-        if (deleteResult.IsFailure)
-        {
-            _logger.LogError("Failed to delete namespace {Id}: {Error}",
-                id, deleteResult.Error?.Message);
-
-            return BadRequest(new ErrorResponse
-            {
-                Message = deleteResult.Error?.Message ?? "Failed to delete namespace",
-                Code = deleteResult.Error?.Code ?? "DELETE_FAILED"
-            });
-        }
-
-        _logger.LogInformation("Deleted namespace {Id}", id);
-
-        return NoContent();
+            Message = string.IsNullOrWhiteSpace(error.Message)
+                ? fallbackMessage
+                : error.Message,
+            Code = string.IsNullOrWhiteSpace(error.Code)
+                ? fallbackCode
+                : error.Code
+        };
     }
 }
 

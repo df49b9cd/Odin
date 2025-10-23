@@ -30,7 +30,7 @@ public sealed class NamespaceRepository(
         var connectionResult = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         return await connectionResult
-            .TapError(error => _logger.LogError(
+            .OnFailure(error => _logger.LogError(
                 "Failed to open connection when creating namespace {NamespaceName}: {Error}",
                 request.NamespaceName,
                 error.Message))
@@ -94,7 +94,7 @@ public sealed class NamespaceRepository(
         var connectionResult = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         return await connectionResult
-            .TapError(error => _logger.LogError(
+            .OnFailure(error => _logger.LogError(
                 "Failed to open connection when fetching namespace {NamespaceName}: {Error}",
                 namespaceName,
                 error.Message))

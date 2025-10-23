@@ -40,7 +40,7 @@ public sealed class HistoryService(
         {
             var shardId = HashingUtilities.CalculateShardId(request.WorkflowId, 512);
             var ownershipResult = await Result.Ok(Unit.Value)
-                .TapAsync((_, ct) => VerifyShardOwnershipAsync(shardId, ct), cancellationToken);
+                .OnSuccessAsync((_, ct) => VerifyShardOwnershipAsync(shardId, ct), cancellationToken);
 
             var validationResult = ownershipResult.Then(_ => ValidateEventSequence(request, _logger));
             if (validationResult.IsFailure)
@@ -56,13 +56,13 @@ public sealed class HistoryService(
                 cancellationToken);
 
             return appendResult
-                .TapError(error => _logger.LogError(
+                .OnFailure(error => _logger.LogError(
                     "Failed to append {Count} events for workflow {WorkflowId}/{RunId}: {Error}",
                     request.Events.Count,
                     request.WorkflowId,
                     request.RunId,
                     error.Message))
-                .Tap(_ => _logger.LogDebug(
+                .OnSuccess(_ => _logger.LogDebug(
                     "Appended {Count} events to workflow {WorkflowId}/{RunId}, event IDs {FirstEventId}-{LastEventId}",
                     request.Events.Count,
                     request.WorkflowId,
@@ -98,7 +98,7 @@ public sealed class HistoryService(
                 cancellationToken);
 
             return historyResult
-                .TapError(error => _logger.LogError(
+                .OnFailure(error => _logger.LogError(
                     "Failed to get history for workflow {WorkflowId}/{RunId}: {Error}",
                     request.WorkflowId,
                     request.RunId,
@@ -144,12 +144,12 @@ public sealed class HistoryService(
                 cancellationToken);
 
             return validationResult
-                .TapError(error => _logger.LogError(
+                .OnFailure(error => _logger.LogError(
                     "Failed to validate history for workflow {WorkflowId}/{RunId}: {Error}",
                     workflowId,
                     runId,
                     error.Message))
-                .Tap(isValid =>
+                .OnSuccess(isValid =>
                 {
                     if (!isValid)
                     {

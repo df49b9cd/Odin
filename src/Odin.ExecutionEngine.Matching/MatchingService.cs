@@ -6,6 +6,7 @@ using Odin.Contracts;
 using Odin.Core;
 using Odin.Persistence.Interfaces;
 using static Hugo.Go;
+using static Hugo.Functional;
 
 namespace Odin.ExecutionEngine.Matching;
 
@@ -32,11 +33,11 @@ public sealed class MatchingService(
         try
         {
             return (await _taskQueueRepository.EnqueueAsync(task, cancellationToken).ConfigureAwait(false))
-                .TapError(error => _logger.LogError(
+                .OnFailure(error => _logger.LogError(
                     "Failed to enqueue task to queue {QueueName}: {Error}",
                     task.TaskQueueName,
                     error.Message))
-                .Tap(taskId => _logger.LogDebug(
+                .OnSuccess(taskId => _logger.LogDebug(
                     "Enqueued task {TaskId} to queue {QueueName} (type: {TaskType})",
                     taskId,
                     task.TaskQueueName,
@@ -74,11 +75,11 @@ public sealed class MatchingService(
                 queueName,
                 workerIdentity,
                 linkedCts.Token).ConfigureAwait(false))
-                .TapError(error => _logger.LogError(
+                .OnFailure(error => _logger.LogError(
                     "Failed to poll queue {QueueName}: {Error}",
                     queueName,
                     error.Message))
-                .Tap(lease =>
+                .OnSuccess(lease =>
                 {
                     if (lease is not null)
                     {
@@ -113,7 +114,7 @@ public sealed class MatchingService(
             return (await _taskQueueRepository.HeartbeatAsync(
                 leaseId,
                 cancellationToken).ConfigureAwait(false))
-                .TapError(error => _logger.LogWarning(
+                .OnFailure(error => _logger.LogWarning(
                     "Failed to heartbeat lease {LeaseId}: {Error}",
                     leaseId,
                     error.Message));
@@ -140,11 +141,11 @@ public sealed class MatchingService(
             return (await _taskQueueRepository.CompleteAsync(
                 leaseId,
                 cancellationToken).ConfigureAwait(false))
-                .TapError(error => _logger.LogWarning(
+                .OnFailure(error => _logger.LogWarning(
                     "Failed to complete lease {LeaseId}: {Error}",
                     leaseId,
                     error.Message))
-                .Tap(_ => _logger.LogDebug(
+                .OnSuccess(_ => _logger.LogDebug(
                     "Completed lease {LeaseId}",
                     leaseId));
         }
@@ -174,11 +175,11 @@ public sealed class MatchingService(
                 reason,
                 requeue,
                 cancellationToken).ConfigureAwait(false))
-                .TapError(error => _logger.LogWarning(
+                .OnFailure(error => _logger.LogWarning(
                     "Failed to mark lease {LeaseId} as failed: {Error}",
                     leaseId,
                     error.Message))
-                .Tap(_ => _logger.LogWarning(
+                .OnSuccess(_ => _logger.LogWarning(
                     "Lease {LeaseId} failed: {Reason} (requeue: {Requeue})",
                     leaseId,
                     reason,
@@ -206,7 +207,7 @@ public sealed class MatchingService(
             return (await _taskQueueRepository.GetQueueDepthAsync(
                 queueName,
                 cancellationToken).ConfigureAwait(false))
-                .TapError(error => _logger.LogError(
+                .OnFailure(error => _logger.LogError(
                     "Failed to get stats for queue {QueueName}: {Error}",
                     queueName,
                     error.Message))
@@ -236,10 +237,10 @@ public sealed class MatchingService(
         {
             return (await _taskQueueRepository.ReclaimExpiredLeasesAsync(
                 cancellationToken).ConfigureAwait(false))
-                .TapError(error => _logger.LogError(
+                .OnFailure(error => _logger.LogError(
                     "Failed to reclaim expired leases: {Error}",
                     error.Message))
-                .Tap(count =>
+                .OnSuccess(count =>
                 {
                     if (count > 0)
                     {

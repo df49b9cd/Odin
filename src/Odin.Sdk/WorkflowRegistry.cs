@@ -1,9 +1,12 @@
+using System;
 using System.Collections.Concurrent;
 using System.Text.Json;
 using Hugo;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Odin.Core;
+using static Hugo.Functional;
+using static Hugo.Go;
 
 namespace Odin.Sdk;
 
@@ -80,53 +83,83 @@ public static class WorkflowRegistrationExtensions
             typeof(TOutput),
             static async (provider, options, input, cancellationToken) =>
             {
-                var workflow = provider.GetRequiredService<TWorkflow>();
                 var serializer = options.SerializerOptions ?? JsonOptions.Default;
-                var typedInput = ConvertInput<TInput>(input, serializer);
+                var executionResult = await ConvertInput<TInput>(input, serializer)
+                    .ThenAsync((typedInput, ct) =>
+                    {
+                        var workflow = provider.GetRequiredService<TWorkflow>();
+                        using var scope = WorkflowRuntime.Initialize(options);
+                        return workflow.ExecuteAsync(typedInput, ct);
+                    }, cancellationToken)
+                    .ConfigureAwait(false);
 
-                using var scope = WorkflowRuntime.Initialize(options);
-                var result = await workflow.ExecuteAsync(typedInput, cancellationToken).ConfigureAwait(false);
-
-                if (result.IsFailure)
-                {
-                    return Result.Fail<object?>(result.Error!);
-                }
-
-                return Result.Ok<object?>(result.Value);
+                return executionResult.Map(result => (object?)result);
             }));
 
         return services;
     }
 
-    private static TInput ConvertInput<TInput>(object? value, JsonSerializerOptions serializerOptions)
+    private static Result<TInput> ConvertInput<TInput>(
+        object? value,
+        JsonSerializerOptions serializerOptions)
     {
         if (value is null)
         {
             if (default(TInput) is null)
             {
-                return default!;
+                return Result.Ok(default(TInput)!);
             }
 
-            throw new InvalidOperationException($"Workflow input of type {typeof(TInput).Name} cannot be null.");
+            return Result.Fail<TInput>(
+                Error.From(
+                    $"Workflow input of type {typeof(TInput).Name} cannot be null.",
+                    OdinErrorCodes.WorkflowExecutionFailed));
         }
 
         if (value is TInput typed)
         {
-            return typed;
+            return Result.Ok(typed);
         }
 
         if (value is JsonElement element)
         {
-            return element.Deserialize<TInput>(serializerOptions)
-                   ?? throw new InvalidOperationException($"Unable to deserialize workflow input to {typeof(TInput).Name}.");
+            return Result
+                .Try(() =>
+                {
+                    var deserialized = element.Deserialize<TInput>(serializerOptions);
+                    if (deserialized is null)
+                    {
+                        throw new InvalidOperationException(
+                            $"Unable to deserialize workflow input to {typeof(TInput).Name}.");
+                    }
+
+                    return deserialized;
+                }, ex => Error.From(
+                    $"Unable to deserialize workflow input to {typeof(TInput).Name}: {ex.Message}",
+                    OdinErrorCodes.WorkflowExecutionFailed));
         }
 
         if (value is string json)
         {
-            return JsonSerializer.Deserialize<TInput>(json, serializerOptions)
-                   ?? throw new InvalidOperationException($"Unable to deserialize workflow input to {typeof(TInput).Name}.");
+            return Result
+                .Try(() =>
+                {
+                    var deserialized = JsonSerializer.Deserialize<TInput>(json, serializerOptions);
+                    if (deserialized is null)
+                    {
+                        throw new InvalidOperationException(
+                            $"Unable to deserialize workflow input to {typeof(TInput).Name}.");
+                    }
+
+                    return deserialized;
+                }, ex => Error.From(
+                    $"Unable to deserialize workflow input to {typeof(TInput).Name}: {ex.Message}",
+                    OdinErrorCodes.WorkflowExecutionFailed));
         }
 
-        throw new InvalidOperationException($"Workflow input must be assignable to {typeof(TInput).Name}, but was {value.GetType().Name}.");
+        return Result.Fail<TInput>(
+            Error.From(
+                $"Workflow input must be assignable to {typeof(TInput).Name}, but was {value.GetType().Name}.",
+                OdinErrorCodes.WorkflowExecutionFailed));
     }
 }

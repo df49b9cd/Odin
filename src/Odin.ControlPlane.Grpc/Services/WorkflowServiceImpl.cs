@@ -1,8 +1,13 @@
+using System;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
+using Hugo;
 using Odin.Contracts;
 using Odin.ControlPlane.Grpc;
 using Odin.Persistence.Interfaces;
+using Odin.Core;
+using static Hugo.Go;
+using static Hugo.Functional;
 using DomainWorkflowExecution = Odin.Contracts.WorkflowExecution;
 using DomainWorkflowState = Odin.Contracts.WorkflowState;
 using ProtoWorkflowExecution = Odin.ControlPlane.Grpc.WorkflowExecution;
@@ -25,63 +30,67 @@ public sealed class WorkflowServiceImpl(
         StartWorkflowRequest request,
         ServerCallContext context)
     {
-        if (string.IsNullOrWhiteSpace(request.WorkflowType))
-        {
-            throw new RpcException(
-                new Status(StatusCode.InvalidArgument, "Workflow type is required"));
-        }
+        var stateResult = Go.Ok(request)
+            .Ensure(static r => !string.IsNullOrWhiteSpace(r.WorkflowType),
+                static _ => Error.From("Workflow type is required", "INVALID_ARGUMENT"))
+            .Ensure(static r => !string.IsNullOrWhiteSpace(r.TaskQueue),
+                static _ => Error.From("Task queue is required", "INVALID_ARGUMENT"))
+            .Then(r => ParseNamespaceId(r.NamespaceId)
+                .Map(namespaceId => (Request: r, NamespaceId: namespaceId)))
+            .Map(state =>
+            {
+                var workflowId = string.IsNullOrWhiteSpace(state.Request.WorkflowId)
+                    ? Guid.NewGuid().ToString()
+                    : state.Request.WorkflowId;
+                var runId = Guid.NewGuid();
+                var now = DateTimeOffset.UtcNow;
 
-        if (string.IsNullOrWhiteSpace(request.TaskQueue))
-        {
-            throw new RpcException(
-                new Status(StatusCode.InvalidArgument, "Task queue is required"));
-        }
+                var execution = new DomainWorkflowExecution
+                {
+                    NamespaceId = state.NamespaceId,
+                    WorkflowId = workflowId,
+                    RunId = runId,
+                    WorkflowType = state.Request.WorkflowType,
+                    TaskQueue = state.Request.TaskQueue,
+                    WorkflowState = DomainWorkflowState.Running,
+                    StartedAt = now,
+                    LastUpdatedAt = now,
+                    ShardId = _workflowRepository.CalculateShardId(workflowId)
+                };
 
-        var namespaceId = ParseNamespaceId(request.NamespaceId);
-        var workflowId = string.IsNullOrWhiteSpace(request.WorkflowId)
-            ? Guid.NewGuid().ToString()
-            : request.WorkflowId;
-        var runId = Guid.NewGuid();
-        var now = DateTimeOffset.UtcNow;
+                return new StartWorkflowState(execution, workflowId, runId);
+            });
 
-        var execution = new DomainWorkflowExecution
-        {
-            NamespaceId = namespaceId,
-            WorkflowId = workflowId,
-            RunId = runId,
-            WorkflowType = request.WorkflowType,
-            TaskQueue = request.TaskQueue,
-            WorkflowState = DomainWorkflowState.Running,
-            StartedAt = now,
-            LastUpdatedAt = now,
-            ShardId = _workflowRepository.CalculateShardId(workflowId)
-        };
-
-        var result = await _workflowRepository.CreateAsync(execution, context.CancellationToken)
+        var createResult = await stateResult
+            .ThenAsync(async (state, ct) =>
+            {
+                var createResult = await _workflowRepository.CreateAsync(state.Execution, ct).ConfigureAwait(false);
+                return createResult.Map(_ => state);
+            }, context.CancellationToken)
             .ConfigureAwait(false);
 
-        if (result.IsFailure)
-        {
-            _logger.LogError("Failed to start workflow {WorkflowId}: {Error}",
-                workflowId,
-                result.Error?.Message);
+        var startResult = createResult
+            .OnFailure(error => _logger.LogError(
+                "Failed to start workflow {WorkflowType}: {Error}",
+                request.WorkflowType,
+                error.Message))
+            .OnSuccess(state => _logger.LogInformation(
+                "Started workflow {WorkflowType} with ID {WorkflowId}/{RunId}",
+                request.WorkflowType,
+                state.WorkflowId,
+                state.RunId))
+            .Map(state => new StartWorkflowResponse
+            {
+                WorkflowId = state.WorkflowId,
+                RunId = state.RunId.ToString()
+            });
 
-            throw new RpcException(new Status(
+        return startResult.Match(
+            response => response,
+            error => throw ToRpcException(
+                error,
                 StatusCode.InvalidArgument,
-                result.Error?.Message ?? "Failed to start workflow"));
-        }
-
-        _logger.LogInformation(
-            "Started workflow {WorkflowType} with ID {WorkflowId}/{RunId}",
-            request.WorkflowType,
-            workflowId,
-            runId);
-
-        return new StartWorkflowResponse
-        {
-            WorkflowId = workflowId,
-            RunId = runId.ToString()
-        };
+                error.Message ?? "Failed to start workflow"));
     }
 
     /// <inheritdoc />
@@ -89,32 +98,34 @@ public sealed class WorkflowServiceImpl(
         GetWorkflowRequest request,
         ServerCallContext context)
     {
-        if (string.IsNullOrWhiteSpace(request.WorkflowId))
-        {
-            throw new RpcException(
-                new Status(StatusCode.InvalidArgument, "Workflow ID is required"));
-        }
+        var fetchResult = await Go.Ok(request)
+            .Ensure(static r => !string.IsNullOrWhiteSpace(r.WorkflowId),
+                static _ => Error.From("Workflow ID is required", "INVALID_ARGUMENT"))
+            .Then(r => ParseNamespaceId(r.NamespaceId)
+                .Map(namespaceId => (Request: r, NamespaceId: namespaceId)))
+            .ThenAsync((state, ct) => FetchWorkflowAsync(
+                state.NamespaceId,
+                state.Request.WorkflowId,
+                state.Request.RunId,
+                ct), context.CancellationToken)
+            .ConfigureAwait(false);
 
-        var namespaceId = ParseNamespaceId(request.NamespaceId);
-        var cancellationToken = context.CancellationToken;
+        var workflowResult = fetchResult
+            .OnFailure(error => _logger.LogWarning(
+                "Failed to get workflow {WorkflowId}: {Error}",
+                request.WorkflowId,
+                error.Message))
+            .Map(execution => new GetWorkflowResponse
+            {
+                Execution = MapToProto(execution)
+            });
 
-        var result = string.IsNullOrWhiteSpace(request.RunId)
-            ? await _workflowRepository.GetCurrentAsync(namespaceId.ToString(), request.WorkflowId, cancellationToken)
-                .ConfigureAwait(false)
-            : await _workflowRepository.GetAsync(namespaceId.ToString(), request.WorkflowId, request.RunId, cancellationToken)
-                .ConfigureAwait(false);
-
-        if (result.IsFailure)
-        {
-            throw new RpcException(new Status(
+        return workflowResult.Match(
+            response => response,
+            error => throw ToRpcException(
+                error,
                 StatusCode.NotFound,
-                result.Error?.Message ?? $"Workflow '{request.WorkflowId}' not found"));
-        }
-
-        return new GetWorkflowResponse
-        {
-            Execution = MapToProto(result.Value)
-        };
+                $"Workflow '{request.WorkflowId}' not found"));
     }
 
     /// <inheritdoc />
@@ -122,41 +133,41 @@ public sealed class WorkflowServiceImpl(
         SignalWorkflowRequest request,
         ServerCallContext context)
     {
-        if (string.IsNullOrWhiteSpace(request.SignalName))
-        {
-            throw new RpcException(
-                new Status(StatusCode.InvalidArgument, "Signal name is required"));
-        }
+        var fetchResult = await Go.Ok(request)
+            .Ensure(static r => !string.IsNullOrWhiteSpace(r.SignalName),
+                static _ => Error.From("Signal name is required", "INVALID_ARGUMENT"))
+            .Ensure(static r => !string.IsNullOrWhiteSpace(r.WorkflowId),
+                static _ => Error.From("Workflow ID is required", "INVALID_ARGUMENT"))
+            .Then(r => ParseNamespaceId(r.NamespaceId)
+                .Map(namespaceId => (Request: r, NamespaceId: namespaceId)))
+            .ThenAsync((state, ct) => FetchWorkflowAsync(
+                state.NamespaceId,
+                state.Request.WorkflowId,
+                state.Request.RunId,
+                ct), context.CancellationToken)
+            .ConfigureAwait(false);
 
-        var namespaceId = ParseNamespaceId(request.NamespaceId);
-        var cancellationToken = context.CancellationToken;
+        var signalResult = fetchResult
+            .Ensure(
+                workflow => workflow.WorkflowState == DomainWorkflowState.Running,
+                workflow => Error.From(
+                    $"Workflow is not running (current status: {workflow.WorkflowState})",
+                    "FAILED_PRECONDITION"))
+            .OnSuccess(_ => _logger.LogInformation(
+                "Signal {SignalName} accepted for workflow {WorkflowId}",
+                request.SignalName,
+                request.WorkflowId))
+            .OnFailure(error => _logger.LogWarning(
+                "Failed to signal workflow {WorkflowId}: {Error}",
+                request.WorkflowId,
+                error.Message));
 
-        var result = string.IsNullOrWhiteSpace(request.RunId)
-            ? await _workflowRepository.GetCurrentAsync(namespaceId.ToString(), request.WorkflowId, cancellationToken)
-                .ConfigureAwait(false)
-            : await _workflowRepository.GetAsync(namespaceId.ToString(), request.WorkflowId, request.RunId, cancellationToken)
-                .ConfigureAwait(false);
-
-        if (result.IsFailure)
-        {
-            throw new RpcException(new Status(
-                StatusCode.NotFound,
-                result.Error?.Message ?? $"Workflow '{request.WorkflowId}' not found"));
-        }
-
-        if (result.Value.WorkflowState != DomainWorkflowState.Running)
-        {
-            throw new RpcException(new Status(
-                StatusCode.FailedPrecondition,
-                $"Workflow is not running (current status: {result.Value.WorkflowState})"));
-        }
-
-        _logger.LogInformation(
-            "Signal {SignalName} accepted for workflow {WorkflowId}",
-            request.SignalName,
-            request.WorkflowId);
-
-        return new SignalWorkflowResponse();
+        return signalResult.Match(
+            _ => new SignalWorkflowResponse(),
+            error => throw ToRpcException(
+                error,
+                StatusCode.InvalidArgument,
+                error.Message ?? "Failed to signal workflow"));
     }
 
     /// <inheritdoc />
@@ -164,61 +175,66 @@ public sealed class WorkflowServiceImpl(
         TerminateWorkflowRequest request,
         ServerCallContext context)
     {
-        if (string.IsNullOrWhiteSpace(request.WorkflowId))
-        {
-            throw new RpcException(
-                new Status(StatusCode.InvalidArgument, "Workflow ID is required"));
-        }
+        var fetchResult = await Go.Ok(request)
+            .Ensure(static r => !string.IsNullOrWhiteSpace(r.WorkflowId),
+                static _ => Error.From("Workflow ID is required", "INVALID_ARGUMENT"))
+            .Then(r => ParseNamespaceId(r.NamespaceId)
+                .Map(namespaceId => (Request: r, NamespaceId: namespaceId)))
+            .ThenAsync(async (state, ct) =>
+            {
+                var workflowResult = await FetchWorkflowAsync(
+                    state.NamespaceId,
+                    state.Request.WorkflowId,
+                    state.Request.RunId,
+                    ct).ConfigureAwait(false);
 
-        var namespaceId = ParseNamespaceId(request.NamespaceId);
-        var cancellationToken = context.CancellationToken;
-
-        var getResult = string.IsNullOrWhiteSpace(request.RunId)
-            ? await _workflowRepository.GetCurrentAsync(namespaceId.ToString(), request.WorkflowId, cancellationToken)
-                .ConfigureAwait(false)
-            : await _workflowRepository.GetAsync(namespaceId.ToString(), request.WorkflowId, request.RunId, cancellationToken)
-                .ConfigureAwait(false);
-
-        if (getResult.IsFailure)
-        {
-            throw new RpcException(new Status(
-                StatusCode.NotFound,
-                getResult.Error?.Message ?? $"Workflow '{request.WorkflowId}' not found"));
-        }
-
-        if (getResult.Value.WorkflowState != DomainWorkflowState.Running)
-        {
-            throw new RpcException(new Status(
-                StatusCode.FailedPrecondition,
-                $"Workflow is not running (current status: {getResult.Value.WorkflowState})"));
-        }
-
-        var terminateResult = await _workflowRepository.TerminateAsync(
-                namespaceId.ToString(),
-                request.WorkflowId,
-                getResult.Value.RunId.ToString(),
-                string.IsNullOrWhiteSpace(request.Reason) ? "Terminated via gRPC" : request.Reason,
-                cancellationToken)
+                return workflowResult.Map(execution => new TerminateWorkflowState(
+                    state.Request,
+                    state.NamespaceId,
+                    execution));
+            }, context.CancellationToken)
             .ConfigureAwait(false);
 
-        if (terminateResult.IsFailure)
-        {
-            _logger.LogError("Failed to terminate workflow {WorkflowId}: {Error}",
+        var ensured = fetchResult.Ensure(state =>
+                state.Execution.WorkflowState == DomainWorkflowState.Running,
+            state => Error.From(
+                $"Workflow is not running (current status: {state.Execution.WorkflowState})",
+                "FAILED_PRECONDITION"));
+
+        var terminated = await ensured
+            .ThenAsync(async (state, ct) =>
+            {
+                var terminate = await _workflowRepository.TerminateAsync(
+                    state.NamespaceId.ToString(),
+                    state.Request.WorkflowId,
+                    state.Execution.RunId.ToString(),
+                    string.IsNullOrWhiteSpace(state.Request.Reason)
+                        ? "Terminated via gRPC"
+                        : state.Request.Reason!,
+                    ct).ConfigureAwait(false);
+
+                return terminate.Map(_ => state);
+            }, context.CancellationToken)
+            .ConfigureAwait(false);
+
+        var terminateResult = terminated
+            .OnSuccess(state => _logger.LogInformation(
+                "Terminated workflow {WorkflowId}/{RunId}: {Reason}",
                 request.WorkflowId,
-                terminateResult.Error?.Message);
+                state.Execution.RunId,
+                request.Reason))
+            .OnFailure(error => _logger.LogError(
+                "Failed to terminate workflow {WorkflowId}: {Error}",
+                request.WorkflowId,
+                error.Message))
+            .Map(_ => new TerminateWorkflowResponse());
 
-            throw new RpcException(new Status(
+        return terminateResult.Match(
+            response => response,
+            error => throw ToRpcException(
+                error,
                 StatusCode.Internal,
-                terminateResult.Error?.Message ?? "Failed to terminate workflow"));
-        }
-
-        _logger.LogInformation(
-            "Terminated workflow {WorkflowId}/{RunId}: {Reason}",
-            request.WorkflowId,
-            getResult.Value.RunId,
-            request.Reason);
-
-        return new TerminateWorkflowResponse();
+                error.Message ?? "Failed to terminate workflow"));
     }
 
     /// <inheritdoc />
@@ -226,30 +242,66 @@ public sealed class WorkflowServiceImpl(
         QueryWorkflowRequest request,
         ServerCallContext context)
     {
-        if (string.IsNullOrWhiteSpace(request.WorkflowId))
-        {
-            throw new RpcException(
-                new Status(StatusCode.InvalidArgument, "Workflow ID is required"));
-        }
+        var fetchResult = await Go.Ok(request)
+            .Ensure(static r => !string.IsNullOrWhiteSpace(r.WorkflowId),
+                static _ => Error.From("Workflow ID is required", "INVALID_ARGUMENT"))
+            .Then(r => ParseNamespaceId(r.NamespaceId)
+                .Map(namespaceId => (Request: r, NamespaceId: namespaceId)))
+            .ThenAsync((state, ct) => FetchWorkflowAsync(
+                state.NamespaceId,
+                state.Request.WorkflowId,
+                state.Request.RunId,
+                ct), context.CancellationToken)
+            .ConfigureAwait(false);
 
-        var namespaceId = ParseNamespaceId(request.NamespaceId);
-        var cancellationToken = context.CancellationToken;
+        var queryResult = fetchResult
+            .OnFailure(error => _logger.LogWarning(
+                "Failed to query workflow {WorkflowId}: {Error}",
+                request.WorkflowId,
+                error.Message))
+            .Map(workflow => new QueryWorkflowResponse
+            {
+                Result = BuildWorkflowStatePayload(workflow)
+            });
 
-        var result = string.IsNullOrWhiteSpace(request.RunId)
-            ? await _workflowRepository.GetCurrentAsync(namespaceId.ToString(), request.WorkflowId, cancellationToken)
-                .ConfigureAwait(false)
-            : await _workflowRepository.GetAsync(namespaceId.ToString(), request.WorkflowId, request.RunId, cancellationToken)
-                .ConfigureAwait(false);
-
-        if (result.IsFailure)
-        {
-            throw new RpcException(new Status(
+        return queryResult.Match(
+            response => response,
+            error => throw ToRpcException(
+                error,
                 StatusCode.NotFound,
-                result.Error?.Message ?? $"Workflow '{request.WorkflowId}' not found"));
-        }
+                $"Workflow '{request.WorkflowId}' not found"));
+    }
 
-        var workflow = result.Value;
-        var payload = new Struct
+    private static Result<Guid> ParseNamespaceId(string namespaceId) =>
+        string.IsNullOrWhiteSpace(namespaceId)
+            ? Result.Fail<Guid>(Error.From("Namespace ID is required", "INVALID_ARGUMENT"))
+            : Guid.TryParse(namespaceId, out var parsed)
+                ? Result.Ok(parsed)
+                : Result.Fail<Guid>(Error.From(
+                    $"Namespace ID '{namespaceId}' is not a valid GUID",
+                    "INVALID_ARGUMENT"));
+
+    private readonly record struct StartWorkflowState(
+        DomainWorkflowExecution Execution,
+        string WorkflowId,
+        Guid RunId);
+
+    private readonly record struct TerminateWorkflowState(
+        TerminateWorkflowRequest Request,
+        Guid NamespaceId,
+        DomainWorkflowExecution Execution);
+
+    private Task<Result<DomainWorkflowExecution>> FetchWorkflowAsync(
+        Guid namespaceId,
+        string workflowId,
+        string? runId,
+        CancellationToken cancellationToken) =>
+        string.IsNullOrWhiteSpace(runId)
+            ? _workflowRepository.GetCurrentAsync(namespaceId.ToString(), workflowId, cancellationToken)
+            : _workflowRepository.GetAsync(namespaceId.ToString(), workflowId, runId, cancellationToken);
+
+    private static Struct BuildWorkflowStatePayload(DomainWorkflowExecution workflow) =>
+        new()
         {
             Fields =
             {
@@ -259,29 +311,27 @@ public sealed class WorkflowServiceImpl(
             }
         };
 
-        return new QueryWorkflowResponse
-        {
-            Result = payload
-        };
-    }
-
-    private static Guid ParseNamespaceId(string namespaceId)
+    private static RpcException ToRpcException(
+        Error error,
+        StatusCode fallbackStatus,
+        string fallbackMessage)
     {
-        if (string.IsNullOrWhiteSpace(namespaceId))
+        var status = error.Code switch
         {
-            throw new RpcException(new Status(
-                StatusCode.InvalidArgument,
-                "Namespace ID is required"));
-        }
+            "INVALID_ARGUMENT" => StatusCode.InvalidArgument,
+            "FAILED_PRECONDITION" => StatusCode.FailedPrecondition,
+            OdinErrorCodes.WorkflowNotFound => StatusCode.NotFound,
+            OdinErrorCodes.NamespaceNotFound => StatusCode.NotFound,
+            OdinErrorCodes.PersistenceError => StatusCode.Internal,
+            OdinErrorCodes.WorkflowExecutionFailed => StatusCode.Internal,
+            _ => fallbackStatus
+        };
 
-        if (!Guid.TryParse(namespaceId, out var parsed))
-        {
-            throw new RpcException(new Status(
-                StatusCode.InvalidArgument,
-                $"Namespace ID '{namespaceId}' is not a valid GUID"));
-        }
+        var message = string.IsNullOrWhiteSpace(error.Message)
+            ? fallbackMessage
+            : error.Message;
 
-        return parsed;
+        return new RpcException(new Status(status, message));
     }
 
     private static ProtoWorkflowExecution MapToProto(DomainWorkflowExecution workflow)

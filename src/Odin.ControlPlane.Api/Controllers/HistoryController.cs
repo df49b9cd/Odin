@@ -1,7 +1,9 @@
+using System;
 using Hugo;
 using Microsoft.AspNetCore.Mvc;
 using Odin.ExecutionEngine.History;
 using static Hugo.Go;
+using static Hugo.Functional;
 
 namespace Odin.ControlPlane.Api.Controllers;
 
@@ -40,63 +42,51 @@ public sealed class HistoryController(
         [FromQuery] int maxEvents = 100,
         CancellationToken cancellationToken = default)
     {
-        // Validate parameters
-        if (maxEvents < 1 || maxEvents > 1000)
-        {
-            return BadRequest(new ErrorResponse
+        var historyPipeline = await Go.Ok(new
             {
-                Message = "maxEvents must be between 1 and 1000",
-                Code = "INVALID_REQUEST"
-            });
-        }
-
-        if (fromEventId < 1)
-        {
-            return BadRequest(new ErrorResponse
+                WorkflowId = workflowId,
+                NamespaceId = namespaceId,
+                RunId = runId,
+                FromEventId = fromEventId,
+                MaxEvents = maxEvents
+            })
+            .Ensure(static payload => payload.MaxEvents is >= 1 and <= 1000,
+                static _ => Error.From("maxEvents must be between 1 and 1000", "INVALID_REQUEST"))
+            .Ensure(static payload => payload.FromEventId >= 1,
+                static _ => Error.From("fromEventId must be >= 1", "INVALID_REQUEST"))
+            .Ensure(static payload => !string.IsNullOrWhiteSpace(payload.RunId),
+                static _ => Error.From("runId is required in Phase 1", "INVALID_REQUEST"))
+            .Map(payload => new GetHistoryRequest
             {
-                Message = "fromEventId must be >= 1",
-                Code = "INVALID_REQUEST"
-            });
-        }
+                NamespaceId = payload.NamespaceId,
+                WorkflowId = payload.WorkflowId,
+                RunId = payload.RunId!,
+                FromEventId = payload.FromEventId,
+                MaxEvents = payload.MaxEvents
+            })
+            .ThenAsync((request, ct) => _historyService.GetHistoryAsync(request, ct), cancellationToken)
+            .ConfigureAwait(false);
 
-        // If no runId provided, need to look up current run
-        // For Phase 1, we'll require runId to be specified
-        if (string.IsNullOrEmpty(runId))
-        {
-            return BadRequest(new ErrorResponse
-            {
-                Message = "runId is required in Phase 1",
-                Code = "INVALID_REQUEST"
-            });
-        }
+        var historyResult = historyPipeline
+            .OnSuccess(response => _logger.LogDebug(
+                "Retrieved {Count} history events for workflow {WorkflowId}/{RunId}",
+                response.Events.Count,
+                workflowId,
+                runId))
+            .OnFailure(error => _logger.LogError(
+                "Failed to get history for workflow {WorkflowId}/{RunId}: {Error}",
+                workflowId,
+                runId,
+                error.Message));
 
-        var request = new GetHistoryRequest
-        {
-            NamespaceId = namespaceId,
-            WorkflowId = workflowId,
-            RunId = runId,
-            FromEventId = fromEventId,
-            MaxEvents = maxEvents
-        };
-
-        var result = await _historyService.GetHistoryAsync(request, cancellationToken);
-
-        if (result.IsFailure)
-        {
-            _logger.LogError("Failed to get history for workflow {WorkflowId}/{RunId}: {Error}",
-                workflowId, runId, result.Error?.Message);
-
-            return NotFound(new ErrorResponse
-            {
-                Message = $"History not found for workflow '{workflowId}'",
-                Code = "HISTORY_NOT_FOUND"
-            });
-        }
-
-        _logger.LogDebug("Retrieved {Count} history events for workflow {WorkflowId}/{RunId}",
-            result.Value.Events.Count, workflowId, runId);
-
-        return Ok(result.Value);
+        return historyResult.Match<IActionResult>(
+            response => Ok(response),
+            error => string.Equals(error.Code, "INVALID_REQUEST", StringComparison.OrdinalIgnoreCase)
+                ? BadRequest(AsErrorResponse(error, "INVALID_REQUEST", error.Message ?? "Invalid history request"))
+                : NotFound(AsErrorResponse(
+                    error,
+                    error.Code ?? "HISTORY_NOT_FOUND",
+                    $"History not found for workflow '{workflowId}'")));
     }
 
     /// <summary>
@@ -116,40 +106,52 @@ public sealed class HistoryController(
         [FromQuery] string? runId = null,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(runId))
-        {
-            return BadRequest(new ErrorResponse
+        var validationPipeline = await Go.Ok(runId)
+            .Ensure(static id => !string.IsNullOrWhiteSpace(id),
+                static _ => Error.From("runId is required", "INVALID_REQUEST"))
+            .Map(id => id!)
+            .ThenAsync((validatedRunId, ct) => _historyService.ValidateHistoryAsync(
+                namespaceId,
+                workflowId,
+                validatedRunId,
+                ct), cancellationToken)
+            .ConfigureAwait(false);
+
+        var validationResult = validationPipeline
+            .OnFailure(error => _logger.LogError(
+                "Failed to validate history for workflow {WorkflowId}/{RunId}: {Error}",
+                workflowId,
+                runId,
+                error.Message));
+
+        return validationResult.Match<IActionResult>(
+            isValid => Ok(new ValidateHistoryResponse
             {
-                Message = "runId is required",
-                Code = "INVALID_REQUEST"
-            });
-        }
+                IsValid = isValid,
+                Message = isValid
+                    ? "History is valid with no sequence gaps"
+                    : "History contains sequence gaps"
+            }),
+            error => BadRequest(AsErrorResponse(
+                error,
+                error.Code ?? "VALIDATION_ERROR",
+                error.Message ?? "Validation failed")));
+    }
 
-        var result = await _historyService.ValidateHistoryAsync(
-            namespaceId,
-            workflowId,
-            runId,
-            cancellationToken);
-
-        if (result.IsFailure)
+    private static ErrorResponse AsErrorResponse(
+        Error error,
+        string fallbackCode,
+        string fallbackMessage)
+    {
+        return new ErrorResponse
         {
-            _logger.LogError("Failed to validate history for workflow {WorkflowId}/{RunId}: {Error}",
-                workflowId, runId, result.Error?.Message);
-
-            return BadRequest(new ErrorResponse
-            {
-                Message = result.Error?.Message ?? "Validation failed",
-                Code = result.Error?.Code ?? "VALIDATION_ERROR"
-            });
-        }
-
-        return Ok(new ValidateHistoryResponse
-        {
-            IsValid = result.Value,
-            Message = result.Value
-                ? "History is valid with no sequence gaps"
-                : "History contains sequence gaps"
-        });
+            Message = string.IsNullOrWhiteSpace(error.Message)
+                ? fallbackMessage
+                : error.Message,
+            Code = string.IsNullOrWhiteSpace(error.Code)
+                ? fallbackCode
+                : error.Code
+        };
     }
 }
 

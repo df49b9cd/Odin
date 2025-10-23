@@ -63,7 +63,7 @@ All factory methods ultimately increment success/failure counters through `GoDia
 - Execution flow: `Then`, `ThenAsync` overloads (sync→sync, sync→async, async→sync, async→async), plus `Recover`, `RecoverAsync` and `Finally`, `FinallyAsync`.
 - Mapping: `Map`, `MapAsync` (sync source/async mapper), `Tap`, `TapAsync`, and aliases `Tee`, `TeeAsync`.
 - Validation: `Ensure`, `EnsureAsync`, LINQ integration (`Select`, `SelectMany`, `Where`).
-- Side-effects: `OnSuccess`, `OnFailure`, `TapError`.
+- Side-effects: `OnSuccess`/`OnSuccessAsync`, `OnFailure`/`OnFailureAsync`, `TapError`/`TapErrorAsync`.
 
 Cancellations are normalised using `Error.Canceled`, preserving the triggering token in metadata where possible.
 

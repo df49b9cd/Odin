@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Odin.Contracts;
 using Odin.ExecutionEngine.Matching;
 using static Hugo.Go;
+using static Hugo.Functional;
 using QueueStats = Odin.ExecutionEngine.Matching.QueueStats;
 
 namespace Odin.ControlPlane.Api.Controllers;
@@ -35,63 +36,50 @@ public sealed class TaskQueueController(
         [FromBody] PollTaskRequest request,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.TaskQueue))
-        {
-            return BadRequest(new ErrorResponse
+        var pollPipeline = await Go.Ok(request)
+            .Ensure(static r => !string.IsNullOrWhiteSpace(r.TaskQueue),
+                static _ => Error.From("Task queue name is required", "INVALID_REQUEST"))
+            .Ensure(static r => !string.IsNullOrWhiteSpace(r.WorkerIdentity),
+                static _ => Error.From("Worker identity is required", "INVALID_REQUEST"))
+            .Ensure(static r => !r.TaskTimeoutSeconds.HasValue || r.TaskTimeoutSeconds.Value > 0,
+                static r => Error.From("Task timeout must be positive", "INVALID_REQUEST"))
+            .ThenAsync((validated, ct) => _matchingService.PollTaskAsync(
+                validated.TaskQueue,
+                validated.WorkerIdentity,
+                TimeSpan.FromSeconds(validated.TaskTimeoutSeconds ?? 30),
+                ct), cancellationToken)
+            .ConfigureAwait(false);
+
+        var pollResult = pollPipeline
+            .OnFailure(error => _logger.LogError(
+                "Failed to poll task from queue {TaskQueue}: {Error}",
+                request.TaskQueue,
+                error.Message))
+            .OnSuccess(taskLease =>
             {
-                Message = "Task queue name is required",
-                Code = "INVALID_REQUEST"
+                if (taskLease is not null)
+                {
+                    _logger.LogDebug(
+                        "Worker {WorkerIdentity} received task from queue {TaskQueue}",
+                        request.WorkerIdentity,
+                        request.TaskQueue);
+                }
             });
-        }
 
-        if (string.IsNullOrWhiteSpace(request.WorkerIdentity))
-        {
-            return BadRequest(new ErrorResponse
-            {
-                Message = "Worker identity is required",
-                Code = "INVALID_REQUEST"
-            });
-        }
-
-        var result = await _matchingService.PollTaskAsync(
-            request.TaskQueue,
-            request.WorkerIdentity,
-            TimeSpan.FromSeconds(request.TaskTimeoutSeconds ?? 30),
-            cancellationToken);
-
-        if (result.IsFailure)
-        {
-            _logger.LogError("Failed to poll task from queue {TaskQueue}: {Error}",
-                request.TaskQueue, result.Error?.Message);
-
-            return BadRequest(new ErrorResponse
-            {
-                Message = result.Error?.Message ?? "Poll failed",
-                Code = result.Error?.Code ?? "POLL_FAILED"
-            });
-        }
-
-        // No task available
-        if (result.Value == null)
-        {
-            return NoContent();
-        }
-
-        var taskLease = result.Value;
-
-        _logger.LogDebug("Worker {WorkerIdentity} received task from queue {TaskQueue}",
-            request.WorkerIdentity, request.TaskQueue);
-
-        return Ok(new PollTaskResponse
-        {
-            LeaseId = taskLease.LeaseId,
-            TaskId = taskLease.LeaseId.ToString(),
-            WorkflowId = taskLease.Task.WorkflowId,
-            RunId = taskLease.Task.RunId.ToString(),
-            ScheduledEventId = taskLease.Task.TaskId,
-            LeasedUntil = taskLease.LeaseExpiresAt.UtcDateTime,
-            Attempt = taskLease.AttemptCount
-        });
+        return pollResult.Match<IActionResult>(
+            success => success is null
+                ? NoContent()
+                : Ok(new PollTaskResponse
+                {
+                    LeaseId = success.LeaseId,
+                    TaskId = success.LeaseId.ToString(),
+                    WorkflowId = success.Task.WorkflowId,
+                    RunId = success.Task.RunId.ToString(),
+                    ScheduledEventId = success.Task.TaskId,
+                    LeasedUntil = success.LeaseExpiresAt.UtcDateTime,
+                    Attempt = success.AttemptCount
+                }),
+            error => BadRequest(AsErrorResponse(error, "POLL_FAILED", "Poll failed")));
     }
 
     /// <summary>
@@ -110,37 +98,32 @@ public sealed class TaskQueueController(
         [FromBody] HeartbeatTaskRequest request,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.WorkerIdentity))
-        {
-            return BadRequest(new ErrorResponse
+        var heartbeatPipeline = await Go.Ok(request)
+            .Ensure(static r => !string.IsNullOrWhiteSpace(r.WorkerIdentity),
+                static _ => Error.From("Worker identity is required", "INVALID_REQUEST"))
+            .Ensure(static r => !r.ExtensionSeconds.HasValue || r.ExtensionSeconds.Value > 0,
+                static _ => Error.From("Extension seconds must be positive", "INVALID_REQUEST"))
+            .ThenAsync((_, ct) => _matchingService.HeartbeatTaskAsync(
+                leaseId,
+                TimeSpan.FromSeconds(request.ExtensionSeconds ?? 30),
+                ct), cancellationToken)
+            .ConfigureAwait(false);
+
+        var heartbeatResult = heartbeatPipeline
+            .OnFailure(error => _logger.LogWarning(
+                "Failed to heartbeat lease {LeaseId}: {Error}",
+                leaseId,
+                error.Message));
+
+        return heartbeatResult.Match<IActionResult>(
+            lease => Ok(new HeartbeatTaskResponse
             {
-                Message = "Worker identity is required",
-                Code = "INVALID_REQUEST"
-            });
-        }
-
-        var result = await _matchingService.HeartbeatTaskAsync(
-            leaseId,
-            TimeSpan.FromSeconds(request.ExtensionSeconds ?? 30),
-            cancellationToken);
-
-        if (result.IsFailure)
-        {
-            _logger.LogWarning("Failed to heartbeat lease {LeaseId}: {Error}",
-                leaseId, result.Error?.Message);
-
-            return NotFound(new ErrorResponse
-            {
-                Message = result.Error?.Message ?? "Heartbeat failed",
-                Code = result.Error?.Code ?? "HEARTBEAT_FAILED"
-            });
-        }
-
-        return Ok(new HeartbeatTaskResponse
-        {
-            Success = true,
-            LeasedUntil = result.Value.LeaseExpiresAt.UtcDateTime
-        });
+                Success = true,
+                LeasedUntil = lease.LeaseExpiresAt.UtcDateTime
+            }),
+            error => string.Equals(error.Code, "INVALID_REQUEST", StringComparison.OrdinalIgnoreCase)
+                ? BadRequest(AsErrorResponse(error, "INVALID_REQUEST", "Heartbeat failed"))
+                : NotFound(AsErrorResponse(error, error.Code ?? "HEARTBEAT_FAILED", error.Message ?? "Heartbeat failed")));
     }
 
     /// <summary>
@@ -159,35 +142,27 @@ public sealed class TaskQueueController(
         [FromBody] CompleteTaskRequest request,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.WorkerIdentity))
-        {
-            return BadRequest(new ErrorResponse
-            {
-                Message = "Worker identity is required",
-                Code = "INVALID_REQUEST"
-            });
-        }
+        var completionPipeline = await Go.Ok(request)
+            .Ensure(static r => !string.IsNullOrWhiteSpace(r.WorkerIdentity),
+                static _ => Error.From("Worker identity is required", "INVALID_REQUEST"))
+            .ThenAsync((_, ct) => _matchingService.CompleteTaskAsync(leaseId, ct), cancellationToken)
+            .ConfigureAwait(false);
 
-        var result = await _matchingService.CompleteTaskAsync(
-            leaseId,
-            cancellationToken);
+        var completionResult = completionPipeline
+            .OnSuccess(_ => _logger.LogInformation(
+                "Lease {LeaseId} completed by worker {WorkerIdentity}",
+                leaseId,
+                request.WorkerIdentity))
+            .OnFailure(error => _logger.LogError(
+                "Failed to complete lease {LeaseId}: {Error}",
+                leaseId,
+                error.Message));
 
-        if (result.IsFailure)
-        {
-            _logger.LogError("Failed to complete lease {LeaseId}: {Error}",
-                leaseId, result.Error?.Message);
-
-            return NotFound(new ErrorResponse
-            {
-                Message = result.Error?.Message ?? "Complete failed",
-                Code = result.Error?.Code ?? "COMPLETE_FAILED"
-            });
-        }
-
-        _logger.LogInformation("Lease {LeaseId} completed by worker {WorkerIdentity}",
-            leaseId, request.WorkerIdentity);
-
-        return Accepted();
+        return completionResult.Match<IActionResult>(
+            _ => Accepted(),
+            error => string.Equals(error.Code, "INVALID_REQUEST", StringComparison.OrdinalIgnoreCase)
+                ? BadRequest(AsErrorResponse(error, "INVALID_REQUEST", "Complete failed"))
+                : NotFound(AsErrorResponse(error, error.Code ?? "COMPLETE_FAILED", error.Message ?? "Complete failed")));
     }
 
     /// <summary>
@@ -206,37 +181,35 @@ public sealed class TaskQueueController(
         [FromBody] FailTaskRequest request,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.WorkerIdentity))
-        {
-            return BadRequest(new ErrorResponse
-            {
-                Message = "Worker identity is required",
-                Code = "INVALID_REQUEST"
-            });
-        }
+        var failurePipeline = await Go.Ok(request)
+            .Ensure(static r => !string.IsNullOrWhiteSpace(r.WorkerIdentity),
+                static _ => Error.From("Worker identity is required", "INVALID_REQUEST"))
+            .Ensure(static r => string.IsNullOrWhiteSpace(r.Error) || r.Error!.Length <= 1024,
+                static _ => Error.From("Error message too long", "INVALID_REQUEST"))
+            .ThenAsync((payload, ct) => _matchingService.FailTaskAsync(
+                leaseId,
+                payload.Error ?? "Task failed",
+                payload.Requeue ?? false,
+                ct), cancellationToken)
+            .ConfigureAwait(false);
 
-        var result = await _matchingService.FailTaskAsync(
-            leaseId,
-            request.Error ?? "Task failed",
-            request.Requeue ?? false,
-            cancellationToken);
+        var failureResult = failurePipeline
+            .OnSuccess(_ => _logger.LogWarning(
+                "Lease {LeaseId} failed by worker {WorkerIdentity}: {Error} (requeue={Requeue})",
+                leaseId,
+                request.WorkerIdentity,
+                request.Error,
+                request.Requeue))
+            .OnFailure(error => _logger.LogError(
+                "Failed to mark lease {LeaseId} as failed: {Error}",
+                leaseId,
+                error.Message));
 
-        if (result.IsFailure)
-        {
-            _logger.LogError("Failed to mark lease {LeaseId} as failed: {Error}",
-                leaseId, result.Error?.Message);
-
-            return NotFound(new ErrorResponse
-            {
-                Message = result.Error?.Message ?? "Fail operation failed",
-                Code = result.Error?.Code ?? "FAIL_FAILED"
-            });
-        }
-
-        _logger.LogWarning("Lease {LeaseId} failed by worker {WorkerIdentity}: {Error} (requeue={Requeue})",
-            leaseId, request.WorkerIdentity, request.Error, request.Requeue);
-
-        return Accepted();
+        return failureResult.Match<IActionResult>(
+            _ => Accepted(),
+            error => string.Equals(error.Code, "INVALID_REQUEST", StringComparison.OrdinalIgnoreCase)
+                ? BadRequest(AsErrorResponse(error, "INVALID_REQUEST", "Fail operation failed"))
+                : NotFound(AsErrorResponse(error, error.Code ?? "FAIL_FAILED", error.Message ?? "Fail operation failed")));
     }
 
     /// <summary>
@@ -252,21 +225,34 @@ public sealed class TaskQueueController(
         [FromRoute] string queueName,
         CancellationToken cancellationToken = default)
     {
-        var result = await _matchingService.GetQueueStatsAsync(queueName, cancellationToken);
+        var statsPipeline = await _matchingService.GetQueueStatsAsync(queueName, cancellationToken)
+            .ConfigureAwait(false);
 
-        if (result.IsFailure)
+        var statsResult = statsPipeline
+            .OnFailure(error => _logger.LogError(
+                "Failed to get stats for queue {QueueName}: {Error}",
+                queueName,
+                error.Message));
+
+        return statsResult.Match<IActionResult>(
+            stats => Ok(stats),
+            error => BadRequest(AsErrorResponse(error, "STATS_FAILED", "Failed to get queue stats")));
+    }
+
+    private static ErrorResponse AsErrorResponse(
+        Error error,
+        string fallbackCode,
+        string fallbackMessage)
+    {
+        return new ErrorResponse
         {
-            _logger.LogError("Failed to get stats for queue {QueueName}: {Error}",
-                queueName, result.Error?.Message);
-
-            return BadRequest(new ErrorResponse
-            {
-                Message = result.Error?.Message ?? "Failed to get queue stats",
-                Code = result.Error?.Code ?? "STATS_FAILED"
-            });
-        }
-
-        return Ok(result.Value);
+            Message = string.IsNullOrWhiteSpace(error.Message)
+                ? fallbackMessage
+                : error.Message,
+            Code = string.IsNullOrWhiteSpace(error.Code)
+                ? fallbackCode
+                : error.Code
+        };
     }
 }
 
