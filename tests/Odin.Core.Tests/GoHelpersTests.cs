@@ -134,7 +134,7 @@ public class GoHelpersTests
 
         result.IsFailure.ShouldBeTrue();
         result.Error.ShouldNotBeNull();
-        result.Error.Code.ShouldBe(OdinErrorCodes.Timeout);
+        result.Error.Code.ShouldBe(Error.Timeout().Code);
     }
 
     [Fact]
