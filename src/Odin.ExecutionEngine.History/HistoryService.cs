@@ -48,27 +48,27 @@ public sealed class HistoryService(
                 return validationResult;
             }
 
-            var appendResult = await _historyRepository.AppendEventsAsync(
+            var appendResult = _historyRepository.AppendEventsAsync(
                 request.NamespaceId,
                 request.WorkflowId,
                 request.RunId,
                 request.Events,
-                cancellationToken);
-
-            return appendResult
-                .OnFailure(error => _logger.LogError(
+                cancellationToken)
+                .OnFailureAsync(error => _logger.LogError(
                     "Failed to append {Count} events for workflow {WorkflowId}/{RunId}: {Error}",
                     request.Events.Count,
                     request.WorkflowId,
                     request.RunId,
-                    error.Message))
-                .OnSuccess(_ => _logger.LogDebug(
+                    error.Message), cancellationToken)
+                .OnSuccessAsync(_ => _logger.LogDebug(
                     "Appended {Count} events to workflow {WorkflowId}/{RunId}, event IDs {FirstEventId}-{LastEventId}",
                     request.Events.Count,
                     request.WorkflowId,
                     request.RunId,
                     request.Events[0].EventId,
-                    request.Events[^1].EventId));
+                    request.Events[^1].EventId), cancellationToken);
+
+            return await appendResult;
         }
         catch (Exception ex)
         {

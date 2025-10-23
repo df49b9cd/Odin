@@ -2,8 +2,8 @@ using System;
 using Hugo;
 using Microsoft.AspNetCore.Mvc;
 using Odin.ExecutionEngine.History;
-using static Hugo.Go;
 using static Hugo.Functional;
+using static Hugo.Go;
 
 namespace Odin.ControlPlane.Api.Controllers;
 
@@ -43,13 +43,13 @@ public sealed class HistoryController(
         CancellationToken cancellationToken = default)
     {
         var historyPipeline = await Go.Ok(new
-            {
-                WorkflowId = workflowId,
-                NamespaceId = namespaceId,
-                RunId = runId,
-                FromEventId = fromEventId,
-                MaxEvents = maxEvents
-            })
+        {
+            WorkflowId = workflowId,
+            NamespaceId = namespaceId,
+            RunId = runId,
+            FromEventId = fromEventId,
+            MaxEvents = maxEvents
+        })
             .Ensure(static payload => payload.MaxEvents is >= 1 and <= 1000,
                 static _ => Error.From("maxEvents must be between 1 and 1000", "INVALID_REQUEST"))
             .Ensure(static payload => payload.FromEventId >= 1,

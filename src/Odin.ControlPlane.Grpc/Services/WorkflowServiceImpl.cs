@@ -4,10 +4,10 @@ using Grpc.Core;
 using Hugo;
 using Odin.Contracts;
 using Odin.ControlPlane.Grpc;
-using Odin.Persistence.Interfaces;
 using Odin.Core;
-using static Hugo.Go;
+using Odin.Persistence.Interfaces;
 using static Hugo.Functional;
+using static Hugo.Go;
 using DomainWorkflowExecution = Odin.Contracts.WorkflowExecution;
 using DomainWorkflowState = Odin.Contracts.WorkflowState;
 using ProtoWorkflowExecution = Odin.ControlPlane.Grpc.WorkflowExecution;
@@ -98,7 +98,7 @@ public sealed class WorkflowServiceImpl(
         GetWorkflowRequest request,
         ServerCallContext context)
     {
-        var fetchResult = await Go.Ok(request)
+        var workflowResult = await Go.Ok(request)
             .Ensure(static r => !string.IsNullOrWhiteSpace(r.WorkflowId),
                 static _ => Error.From("Workflow ID is required", "INVALID_ARGUMENT"))
             .Then(r => ParseNamespaceId(r.NamespaceId)
@@ -108,17 +108,15 @@ public sealed class WorkflowServiceImpl(
                 state.Request.WorkflowId,
                 state.Request.RunId,
                 ct), context.CancellationToken)
-            .ConfigureAwait(false);
-
-        var workflowResult = fetchResult
-            .OnFailure(error => _logger.LogWarning(
+            .OnFailureAsync(error => _logger.LogWarning(
                 "Failed to get workflow {WorkflowId}: {Error}",
                 request.WorkflowId,
-                error.Message))
-            .Map(execution => new GetWorkflowResponse
+                error.Message), context.CancellationToken)
+            .MapAsync(execution => new GetWorkflowResponse
             {
                 Execution = MapToProto(execution)
-            });
+            }, context.CancellationToken)
+            .ConfigureAwait(false);
 
         return workflowResult.Match(
             response => response,

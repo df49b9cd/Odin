@@ -3,8 +3,8 @@ using Hugo;
 using Microsoft.AspNetCore.Mvc;
 using Odin.Contracts;
 using Odin.ExecutionEngine.Matching;
-using static Hugo.Go;
 using static Hugo.Functional;
+using static Hugo.Go;
 using QueueStats = Odin.ExecutionEngine.Matching.QueueStats;
 
 namespace Odin.ControlPlane.Api.Controllers;

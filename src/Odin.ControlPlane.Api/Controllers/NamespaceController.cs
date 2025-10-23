@@ -3,8 +3,8 @@ using Hugo;
 using Microsoft.AspNetCore.Mvc;
 using Odin.Core;
 using Odin.Persistence.Interfaces;
-using static Hugo.Go;
 using static Hugo.Functional;
+using static Hugo.Go;
 using NamespaceModel = Odin.Contracts.Namespace;
 
 namespace Odin.ControlPlane.Api.Controllers;
@@ -191,7 +191,7 @@ public sealed class NamespaceController(
                     error.Code ?? "DELETE_FAILED",
                     error.Message ?? "Failed to delete namespace")));
     }
-    
+
     private static ErrorResponse AsErrorResponse(
         Error error,
         string fallbackCode,
