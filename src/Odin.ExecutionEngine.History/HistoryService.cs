@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Hugo;
 using Microsoft.Extensions.Logging;
 using Odin.Contracts;

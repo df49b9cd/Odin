@@ -1,10 +1,8 @@
-using System;
 using Hugo;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Odin.Core;
 using static Hugo.Functional;
-using static Hugo.Go;
 
 namespace Odin.Sdk;
 

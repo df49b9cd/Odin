@@ -1,8 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Odin.Core;
 using Shouldly;
-using Xunit;
 
 namespace Odin.Core.Tests;
 

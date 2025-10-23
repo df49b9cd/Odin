@@ -1,9 +1,7 @@
-using System.Linq;
 using Microsoft.Extensions.Logging.Abstractions;
 using Odin.Contracts;
 using Odin.Persistence.InMemory;
 using Shouldly;
-using Xunit;
 
 namespace Odin.Persistence.Tests;
 

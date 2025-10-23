@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using Odin.ExecutionEngine.Matching;
 using Odin.Persistence.InMemory;
 using Odin.Persistence.Interfaces;

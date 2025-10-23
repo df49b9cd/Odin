@@ -1,12 +1,8 @@
 extern alias api;
 extern alias grpc;
-using System;
-using System.Net.Http;
-using System.Threading.Tasks;
 using Grpc.Core;
 using Grpc.Net.Client;
 using Shouldly;
-using Xunit;
 using GetWorkflowRequest = api::Odin.ControlPlane.Grpc.GetWorkflowRequest;
 using GrpcWorkflowServiceClient = api::Odin.ControlPlane.Grpc.WorkflowService.WorkflowServiceClient;
 using QueryWorkflowRequest = api::Odin.ControlPlane.Grpc.QueryWorkflowRequest;

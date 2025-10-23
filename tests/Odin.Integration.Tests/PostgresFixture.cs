@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
 using System.Text.Json;
 using Dapper;
 using Docker.DotNet;
@@ -12,7 +8,6 @@ using Npgsql;
 using Odin.Persistence;
 using Odin.Persistence.Repositories;
 using Testcontainers.PostgreSql;
-using Xunit;
 
 namespace Odin.Integration.Tests;
 

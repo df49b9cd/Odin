@@ -3,7 +3,6 @@ using Odin.Contracts;
 using Odin.Core;
 using Odin.Persistence.Repositories;
 using Shouldly;
-using Xunit;
 
 namespace Odin.Integration.Tests;
 

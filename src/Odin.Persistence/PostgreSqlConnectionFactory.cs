@@ -2,7 +2,6 @@ using System.Data;
 using Hugo;
 using Microsoft.Extensions.Logging;
 using Npgsql;
-using static Hugo.Go;
 
 namespace Odin.Persistence;
 

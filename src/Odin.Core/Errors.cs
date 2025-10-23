@@ -1,5 +1,4 @@
 using Hugo;
-using static Hugo.Go;
 
 namespace Odin.Core;
 

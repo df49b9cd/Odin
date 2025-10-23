@@ -1,6 +1,5 @@
 using System.Data;
 using Hugo;
-using static Hugo.Go;
 
 namespace Odin.Persistence;
 

@@ -1,7 +1,6 @@
 using Hugo;
 using Odin.Contracts;
 using Odin.Sdk;
-using static Hugo.Go;
 using Unit = Hugo.Go.Unit;
 
 namespace Odin.ExecutionEngine.Matching;

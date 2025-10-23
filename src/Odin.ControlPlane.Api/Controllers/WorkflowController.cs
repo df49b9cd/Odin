@@ -1,8 +1,6 @@
-using System.Linq;
 using System.Text.Json;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Odin.Core;
 using GrpcGetWorkflowRequest = Odin.ControlPlane.Grpc.GetWorkflowRequest;
@@ -10,7 +8,6 @@ using GrpcQueryWorkflowRequest = Odin.ControlPlane.Grpc.QueryWorkflowRequest;
 using GrpcQueryWorkflowResponse = Odin.ControlPlane.Grpc.QueryWorkflowResponse;
 using GrpcSignalWorkflowRequest = Odin.ControlPlane.Grpc.SignalWorkflowRequest;
 using GrpcStartWorkflowRequest = Odin.ControlPlane.Grpc.StartWorkflowRequest;
-using GrpcStartWorkflowResponse = Odin.ControlPlane.Grpc.StartWorkflowResponse;
 using GrpcTerminateWorkflowRequest = Odin.ControlPlane.Grpc.TerminateWorkflowRequest;
 using ProtoWorkflowExecution = Odin.ControlPlane.Grpc.WorkflowExecution;
 using ProtoWorkflowState = Odin.ControlPlane.Grpc.WorkflowState;

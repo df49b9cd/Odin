@@ -2,7 +2,6 @@ using System.Text.Json;
 using Odin.Contracts;
 using Odin.Persistence.InMemory;
 using Shouldly;
-using Xunit;
 
 namespace Odin.Persistence.Tests;
 

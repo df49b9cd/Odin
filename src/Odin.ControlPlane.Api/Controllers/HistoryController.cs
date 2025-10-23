@@ -1,9 +1,7 @@
-using System;
 using Hugo;
 using Microsoft.AspNetCore.Mvc;
 using Odin.ExecutionEngine.History;
 using static Hugo.Functional;
-using static Hugo.Go;
 
 namespace Odin.ControlPlane.Api.Controllers;
 

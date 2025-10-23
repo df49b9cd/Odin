@@ -1,4 +1,3 @@
-using System.Net.Http;
 using Odin.ControlPlane.Grpc;
 using Odin.ExecutionEngine.History;
 using Odin.ExecutionEngine.Matching;

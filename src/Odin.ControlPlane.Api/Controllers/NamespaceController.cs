@@ -1,10 +1,8 @@
-using System;
 using Hugo;
 using Microsoft.AspNetCore.Mvc;
 using Odin.Core;
 using Odin.Persistence.Interfaces;
 using static Hugo.Functional;
-using static Hugo.Go;
 using NamespaceModel = Odin.Contracts.Namespace;
 
 namespace Odin.ControlPlane.Api.Controllers;
