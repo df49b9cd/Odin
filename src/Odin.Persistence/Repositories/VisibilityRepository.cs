@@ -1,4 +1,5 @@
 using System.Data;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Dapper;
@@ -718,6 +719,25 @@ LIMIT @Limit OFFSET @Offset";
         return new DateTimeOffset(specified);
     }
 
+    private static readonly IReadOnlyDictionary<string, FieldDescriptor> FieldDescriptors =
+        new Dictionary<string, FieldDescriptor>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["WorkflowType"] = new FieldDescriptor("workflow_type", FieldType.Text),
+            ["WorkflowId"] = new FieldDescriptor("workflow_id", FieldType.Text),
+            ["Status"] = new FieldDescriptor("status", FieldType.Text),
+            ["TaskQueue"] = new FieldDescriptor("task_queue", FieldType.Text),
+            ["State"] = new FieldDescriptor("workflow_state", FieldType.Text),
+            ["NamespaceId"] = new FieldDescriptor("namespace_id", FieldType.Guid),
+            ["RunId"] = new FieldDescriptor("run_id", FieldType.Guid),
+            ["StartTime"] = new FieldDescriptor("start_time", FieldType.Timestamp),
+            ["CloseTime"] = new FieldDescriptor("close_time", FieldType.Timestamp),
+            ["ExecutionTime"] = new FieldDescriptor("execution_time", FieldType.Timestamp),
+            ["HistoryLength"] = new FieldDescriptor("history_length", FieldType.Number),
+            ["DurationMs"] = new FieldDescriptor("execution_duration_ms", FieldType.Number)
+        };
+
+    private static readonly string[] SupportedOperators = ["!=", ">=", "<=", ">", "<", "=", ":"];
+
     private static string BuildQueryFilter(string? query, out DynamicParameters parameters)
     {
         parameters = new DynamicParameters();
@@ -736,7 +756,10 @@ LIMIT @Limit OFFSET @Offset";
             foreach (var filter in fieldFilters)
             {
                 filters.Add(filter.Sql);
-                parameters.Add(filter.ParameterName, filter.Value);
+                if (!string.IsNullOrEmpty(filter.ParameterName))
+                {
+                    parameters.Add(filter.ParameterName, filter.Value);
+                }
             }
 
             if (string.IsNullOrWhiteSpace(remaining))
@@ -761,55 +784,250 @@ LIMIT @Limit OFFSET @Offset";
         out string? remaining)
     {
         filters = new List<FieldFilter>();
-        remaining = query;
+        remaining = query?.Trim();
 
-        if (string.IsNullOrWhiteSpace(query) || !query.Contains('='))
+        if (string.IsNullOrWhiteSpace(query))
         {
             return false;
         }
 
         var expressions = query.Split("AND", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (expressions.Length == 0)
+        {
+            return false;
+        }
 
         var builder = new StringBuilder();
+        var index = 0;
+
         foreach (var expression in expressions)
         {
-            var parts = expression.Split('=', 2, StringSplitOptions.TrimEntries);
-            if (parts.Length != 2)
+            if (string.IsNullOrWhiteSpace(expression))
             {
-                builder.Append(parts[0].Trim()).Append(' ');
                 continue;
             }
 
-            var field = parts[0].Trim();
-            var value = parts[1].Trim().Trim('\'', '"');
-
-            if (!TryMapField(field, out var column))
+            if (!TryParseSingleExpression(expression, index, out var filter))
             {
                 builder.Append(expression).Append(' ');
                 continue;
             }
 
-            var parameterName = $"Filter_{filters.Count}";
-            filters.Add(new FieldFilter($"{column} = @{parameterName}", parameterName, value));
+            filters.Add(filter);
+            index++;
         }
 
         remaining = builder.ToString().Trim();
         return filters.Count > 0;
     }
 
-    private static bool TryMapField(string field, out string columnName)
+    private static bool TryParseSingleExpression(string expression, int index, out FieldFilter filter)
     {
-        columnName = field switch
-        {
-            "WorkflowType" => "workflow_type",
-            "WorkflowId" => "workflow_id",
-            "Status" => "status",
-            "TaskQueue" => "task_queue",
-            "State" => "workflow_state",
-            _ => string.Empty
-        };
+        filter = default!;
 
-        return !string.IsNullOrEmpty(columnName);
+        if (!TrySplitExpression(expression, out var field, out var op, out var rawValue))
+        {
+            return false;
+        }
+
+        if (!FieldDescriptors.TryGetValue(field, out var descriptor))
+        {
+            return false;
+        }
+
+        var normalizedValue = NormalizeValue(rawValue);
+        return TryCreateFilter(descriptor, op, normalizedValue, index, out filter);
+    }
+
+    private static bool TrySplitExpression(string expression, out string field, out string op, out string value)
+    {
+        field = string.Empty;
+        op = string.Empty;
+        value = string.Empty;
+
+        foreach (var candidate in SupportedOperators)
+        {
+            var position = expression.IndexOf(candidate, StringComparison.Ordinal);
+            if (position < 0)
+            {
+                continue;
+            }
+
+            var left = expression[..position].Trim();
+            var right = expression[(position + candidate.Length)..].Trim();
+
+            if (string.IsNullOrWhiteSpace(left) || (string.IsNullOrWhiteSpace(right) && !IsNullLiteral(right)))
+            {
+                continue;
+            }
+
+            field = left;
+            op = candidate;
+            value = right;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static string NormalizeValue(string value)
+        => value.Trim().Trim('\'', '"');
+
+    private static bool TryCreateFilter(
+        FieldDescriptor descriptor,
+        string op,
+        string valueText,
+        int index,
+        out FieldFilter filter)
+    {
+        filter = default!;
+
+        if (IsNullLiteral(valueText))
+        {
+            if (op is "=" or "!=")
+            {
+                var nullSql = $"{descriptor.ColumnName} IS {(op == "!=" ? "NOT " : string.Empty)}NULL";
+                filter = new FieldFilter(nullSql, null, null);
+                return true;
+            }
+
+            return false;
+        }
+
+        object parameterValue;
+        switch (descriptor.Type)
+        {
+            case FieldType.Text:
+                if (op is ">" or "<" or ">=" or "<=")
+                {
+                    return false;
+                }
+
+                parameterValue = valueText;
+                break;
+
+            case FieldType.Guid:
+                if (op is not "=" and not "!=" || !Guid.TryParse(valueText, out var guid))
+                {
+                    return false;
+                }
+
+                parameterValue = guid;
+                break;
+
+            case FieldType.Number:
+                if (!long.TryParse(valueText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number))
+                {
+                    return false;
+                }
+
+                parameterValue = number;
+                break;
+
+            case FieldType.Timestamp:
+                if (!TryParseDateTime(valueText, out var timestamp))
+                {
+                    return false;
+                }
+
+                parameterValue = timestamp;
+                break;
+
+            default:
+                return false;
+        }
+
+        var parameterName = $"Filter_{index}";
+        string sql;
+        object? parameter = parameterValue;
+
+        switch (op)
+        {
+            case ":":
+                if (descriptor.Type != FieldType.Text)
+                {
+                    return false;
+                }
+
+                sql = $"{descriptor.ColumnName} ILIKE @{parameterName}";
+                parameter = $"%{valueText}%";
+                break;
+
+            case "=":
+                sql = descriptor.Type == FieldType.Text
+                    ? $"{descriptor.ColumnName} ILIKE @{parameterName}"
+                    : $"{descriptor.ColumnName} = @{parameterName}";
+                if (descriptor.Type == FieldType.Text)
+                {
+                    parameter = valueText;
+                }
+                break;
+
+            case "!=":
+                sql = descriptor.Type == FieldType.Text
+                    ? $"{descriptor.ColumnName} NOT ILIKE @{parameterName}"
+                    : $"{descriptor.ColumnName} <> @{parameterName}";
+                if (descriptor.Type == FieldType.Text)
+                {
+                    parameter = valueText;
+                }
+                break;
+
+            case ">":
+            case ">=":
+            case "<":
+            case "<=":
+                if (descriptor.Type is FieldType.Text or FieldType.Guid)
+                {
+                    return false;
+                }
+
+                sql = $"{descriptor.ColumnName} {op} @{parameterName}";
+                break;
+
+            default:
+                return false;
+        }
+
+        filter = new FieldFilter(sql, parameterName, parameter);
+        return true;
+    }
+
+    private static bool TryParseDateTime(string valueText, out DateTime timestamp)
+    {
+        if (DateTimeOffset.TryParse(
+                valueText,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                out var dto))
+        {
+            timestamp = dto.UtcDateTime;
+            return true;
+        }
+
+        if (DateTime.TryParse(
+                valueText,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                out var dt))
+        {
+            timestamp = dt.ToUniversalTime();
+            return true;
+        }
+
+        timestamp = default;
+        return false;
+    }
+
+    private static bool IsNullLiteral(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var normalized = value.Trim().Trim('\'', '"');
+        return string.Equals(normalized, "null", StringComparison.OrdinalIgnoreCase);
     }
 
     private static ContractsWorkflowStatus? ParseStatus(string? value)
@@ -1011,7 +1229,17 @@ LIMIT @Limit OFFSET @Offset";
         }
     }
 
-    private sealed record FieldFilter(string Sql, string ParameterName, object Value);
+    private sealed record FieldFilter(string Sql, string? ParameterName, object? Value);
+
+    private sealed record FieldDescriptor(string ColumnName, FieldType Type);
+
+    private enum FieldType
+    {
+        Text,
+        Guid,
+        Number,
+        Timestamp
+    }
 
     private sealed record VisibilityRow(
         Guid NamespaceId,

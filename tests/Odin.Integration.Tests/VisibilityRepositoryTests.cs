@@ -94,6 +94,66 @@ public sealed class VisibilityRepositoryTests(PostgresFixture fixture) : IAsyncL
         count.Value.ShouldBe(0);
     }
 
+    [Fact]
+    public async Task Search_WithFieldFilters_SupportsComparisons()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var first = await CreateWorkflowAsync("vis-wf-field-1");
+        var second = await CreateWorkflowAsync("vis-wf-field-2");
+        var third = await CreateWorkflowAsync("vis-wf-field-3");
+
+        await Repository.UpsertAsync(
+            _namespaceId.ToString(),
+            first.WorkflowId,
+            first.RunId.ToString(),
+            CreateVisibilityInfo(first.WorkflowId, first.RunId.ToString(), WorkflowStatus.Running, now.AddMinutes(-30)),
+            TestContext.Current.CancellationToken);
+
+        await Repository.UpsertAsync(
+            _namespaceId.ToString(),
+            second.WorkflowId,
+            second.RunId.ToString(),
+            CreateVisibilityInfo(second.WorkflowId, second.RunId.ToString(), WorkflowStatus.Completed, now.AddMinutes(-10), closeTime: now.AddMinutes(-5)) with
+            {
+                TaskQueue = "metrics",
+                WorkflowType = "visibility.metrics"
+            },
+            TestContext.Current.CancellationToken);
+
+        await Repository.UpsertAsync(
+            _namespaceId.ToString(),
+            third.WorkflowId,
+            third.RunId.ToString(),
+            CreateVisibilityInfo(third.WorkflowId, third.RunId.ToString(), WorkflowStatus.Terminated, now.AddHours(-2)) with
+            {
+                TaskQueue = "archival",
+                WorkflowType = "visibility.archival"
+            },
+            TestContext.Current.CancellationToken);
+
+        var query = $"Status = completed AND TaskQueue:metrics AND StartTime >= '{now.AddHours(-1):O}'";
+        var search = await Repository.SearchAsync(
+            _namespaceId.ToString(),
+            query,
+            pageSize: 10,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        search.IsSuccess.ShouldBeTrue(search.Error?.Message ?? "SearchAsync failed");
+        search.Value.Executions.Count.ShouldBe(1);
+        search.Value.Executions[0].WorkflowId.ShouldBe(second.WorkflowId);
+
+        var stateQuery = "State != running AND CloseTime = null";
+        var secondary = await Repository.SearchAsync(
+            _namespaceId.ToString(),
+            stateQuery,
+            pageSize: 10,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        secondary.IsSuccess.ShouldBeTrue(secondary.Error?.Message ?? "Secondary search failed");
+        secondary.Value.Executions.Count.ShouldBe(1);
+        secondary.Value.Executions[0].WorkflowId.ShouldBe(third.WorkflowId);
+    }
+
     private async Task<WorkflowExecution> CreateWorkflowAsync(string workflowId)
     {
         var execution = new WorkflowExecution

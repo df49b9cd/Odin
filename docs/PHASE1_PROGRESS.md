@@ -1,12 +1,13 @@
 # Phase 1 Continuation Progress Report
 
-**Date**: November 9, 2025  
+**Date**: October 23, 2025  
 **Status**: In Progress - Significant Foundation Complete  
-**Build Status**: ✅ `dotnet build` (November 9, 2025) succeeded with warnings only
+**Build Status**: ✅ `dotnet build` (October 23, 2025) succeeded with warnings only (NU1510 on ControlPlane Api/Grpc)
+**Test Status**: ✅ `dotnet test` (October 23, 2025) passed for Persistence, SDK, Control Plane, and Integration suites
 
 ## Summary
 
-Validated Phase 1 foundation work for the Hugo Durable Orchestrator (Odin): PostgreSQL migrations rehomed into a `golang-migrate`-compatible structure, Odin.Core utility helpers (Errors, GoHelpers, HashingUtilities, JsonOptions), a comprehensive contract model suite, the PostgreSqlConnectionFactory with Result-based error handling, and in-memory repository implementations. Namespace, Shard, WorkflowExecution, History, TaskQueue, and Visibility repositories are production-ready with Dapper and aligned with the Phase 1 schema.
+Validated Phase 1 foundation work for the Hugo Durable Orchestrator (Odin): PostgreSQL migrations rehomed into a `golang-migrate`-compatible structure, Odin.Core utility helpers (Errors, HashingUtilities, JsonOptions), a comprehensive contract model suite, the PostgreSqlConnectionFactory with Result-based error handling, and in-memory/PostgreSQL repository implementations. Namespace, Shard, WorkflowExecution, History, TaskQueue, and Visibility repositories ship with Dapper integrations and align with the Phase 1 schema. Control plane REST + gRPC surfaces, worker runtime, and system workers are online with green unit and integration suites.
 
 ## Validated Work To Date
 
@@ -83,27 +84,21 @@ Implemented reusable helpers anchored on Hugo primitives:
 
 **Files Created**:
 
-- `Errors.cs` - Standard error codes and factory methods
-  - OdinErrorCodes constants (WORKFLOW_NOT_FOUND, PERSISTENCE_ERROR, etc.)
+- `Errors.cs` - Standard error codes and factory methods  
+  - OdinErrorCodes constants (WORKFLOW_NOT_FOUND, PERSISTENCE_ERROR, etc.)  
   - OdinErrors factory methods for consistent error creation
 
-- `GoHelpers.cs` - Hugo primitive helpers
-  - `FanOutAsync()` - Concurrent execution with ErrGroup
-  - `RaceAsync()` - First successful result wins
-  - `WithTimeoutAsync()` - Timeout-aware operations
-  - `RetryAsync()` - Exponential backoff retry logic
-
-- `HashingUtilities.cs` - Workflow ID hashing and shard calculation
-  - `CalculateShardId()` - Consistent hashing for workflow routing
-  - `CalculatePartitionHash()` - Task queue distribution
+- `HashingUtilities.cs` - Workflow ID hashing and shard calculation  
+  - `CalculateShardId()` - Consistent hashing for workflow routing  
+  - `CalculatePartitionHash()` - Task queue distribution  
   - `GenerateHash()` - Deterministic hash generation
 
-- `JsonOptions.cs` - Standardized JSON serialization
-  - Default options with camelCase naming
-  - Pretty-print options for debugging
+- `JsonOptions.cs` - Standardized JSON serialization  
+  - Default options with camelCase naming  
+  - Pretty-print options for debugging  
   - Convenience methods for serialize/deserialize
 
-**Note**: Hugo’s built-in `Result` and `Functional` APIs already cover the fluent composition scenarios we need; custom `ResultExtensions` remain optional and will be revisited only if Odin-specific helpers emerge.
+**Note**: Hugo’s built-in `Result` and `Functional` APIs cover concurrency primitives (fan-out, race, timeout, retry). Services and the worker runtime import `static Hugo.Go` directly rather than a bespoke `GoHelpers` layer; additional Odin-specific helpers remain optional.
 
 **Build Configuration**: Central package management pins Hugo 1.0.0 and Microsoft.Extensions.Logging.Abstractions 10.0.0-rc.2.
 
@@ -222,12 +217,13 @@ src/Odin.Persistence/
 
 ## Validation Notes
 
-- Ran `dotnet build` on November 9, 2025 (warnings only, no failures)
-- Confirmed 10 PostgreSQL migrations now tracked in `src/Odin.Persistence/Migrations/PostgreSQL`
+- Ran `dotnet build` on October 23, 2025 (warnings only, no failures)
+- Ran `dotnet test` on October 23, 2025 (Persistence, SDK, Control Plane, and Integration projects all pass; ExecutionEngine test project currently contains no test classes)
+- Confirmed 10 PostgreSQL migrations remain tracked in `src/Odin.Persistence/Migrations/PostgreSQL`
 - Added Docker-based `tools/migrate.sh` wrapper around `golang-migrate` CLI
 - Implemented Dapper-backed WorkflowExecutionRepository with optimistic locking and JSON mapping
 - Implemented Dapper-backed HistoryRepository with sequential validation, JSON handling, and archival helpers
-- Verified Odin.Core helpers (`Errors.cs`, `GoHelpers.cs`, `HashingUtilities.cs`, `JsonOptions.cs`) compile and align with Hugo integration patterns
+- Verified Odin.Core helpers (`Errors.cs`, `HashingUtilities.cs`, `JsonOptions.cs`) compile and align with Hugo integration patterns
 - Located Hugo API research compendium in `docs/reference/hugo-api-reference.md`
 - Validated visibility repository queries (upsert/search/tag/archival) against PostgreSQL schema
 
@@ -243,13 +239,12 @@ src/Odin.Persistence/
 
 - **SQL Schema Files**: 21 (10 migration pairs + README)
 - **Lines of SQL**: ~2,000+
-- **C# Source Files Created**: 19 new files
-- **Lines of C# Code**: ~4,000+
+- **Core C# Assets**: 60+ source files across Persistence, SDK, ExecutionEngine, Control Plane, and WorkerHost
 - **Repository Interfaces**: 6 comprehensive interfaces
 - **Repository Implementations**: 6 implemented (Namespace, Shard, WorkflowExecution, History, TaskQueue, Visibility), 0 stubbed
 - **Total Contract Models**: 50+ record types
-- **Build Time**: ~3.4 seconds
-- **Test Projects**: 4 (ready for test implementation)
+- **Latest `dotnet build` Duration**: ~25.7 seconds (Debug, cold cache)
+- **Latest `dotnet test` Duration**: ~35 seconds (six test projects; ExecutionEngine tests empty but project builds)
 
 ## Architecture Highlights
 
@@ -265,7 +260,7 @@ src/Odin.Persistence/
 - **Hugo Integration**: Static imports (`using static Hugo.Go;`)
 - **Result<T> Creation**: `Result.Ok<T>()` and `Result.Fail<T>(error)`  
 - **Error Handling**: Consistent error codes and structured metadata
-- **Concurrency**: Fan-out, race, timeout, and retry patterns
+- **Concurrency**: Direct use of Hugo `TaskQueue`, `Result.WhenAll`, and related fan-out/race/timeout primitives inside services
 - **Hashing**: Consistent shard and partition calculation
 
 ### Contract Models
@@ -289,39 +284,40 @@ src/Odin.Persistence/
 ### 1. Persistence Foundation
 
 - **Objective**: Deliver production-ready PostgreSQL persistence with Dapper repositories matching the migration set.
-- **Status**: ✅ Schemas complete; ✅ Namespace/Shard/Workflow/History/TaskQueue/Visibility repositories implemented.
+- **Status**: ✅ Schemas complete; ✅ Namespace/Shard/Workflow/History/TaskQueue/Visibility repositories implemented with passing unit + integration coverage.
 - **Tooling**: `golang-migrate` adoption with Docker wrapper (`tools/migrate.sh`) targeting `src/Odin.Persistence/Migrations/PostgreSQL`.
-- **Immediate Focus**: Harden visibility search/query support, wire stored functions (`get_next_task`, cleanup routines) through integration tests, and add in-memory/PostgreSQL coverage for all repositories.
+- **Immediate Focus**: Exercise long-running lease/cleanup flows under load, expand visibility search parser scenarios, and tune indexes/maintenance routines using integration fixtures.
 
 ### 2. Worker SDK Core
 
 - **Objective**: Expose deterministic workflow/activity primitives on top of Hugo Result pipelines.
-- **Status**: ✅ Workflow runtime scaffolding in place: context accessors, deterministic effects, and version gating exposed through the SDK.
-- **Immediate Focus**: Build worker host plumbing (task queue polling, dispatcher) and ship sample workflows/activities using the new runtime.
+- **Status**: ✅ Workflow runtime scaffolding in place (WorkflowBase, ActivityBase, WorkflowExecutor, WorkflowRuntime, WorkflowRegistry) with unit coverage in `tests/Odin.Sdk.Tests`.
+- **Immediate Focus**: Broaden sample library, integrate WorkerHost against PostgreSQL persistence, and document replay/versioning patterns.
 
 ### 3. Execution Engine Services
 
 - **Objective**: Stand up History and Matching services that orchestrate shard ownership, task queues, and replay.
-- **Status**: ✅ History service persists/replays events; matching dispatch spins through `TaskQueueChannelAdapter<T>` with system workers running timers, retries, and cleanup over shared queues.
-- **Immediate Focus**: Broaden persistence coverage (timer/retry repositories) and integrate the services with Control Plane APIs.
+- **Status**: ✅ History service persists/replays events; Matching service + TaskQueueDispatcher power worker subscriptions; system workers (Timer, Retry, Cleanup) run against shared queues.
+- **Immediate Focus**: Seed targeted ExecutionEngine unit tests, wire telemetry/metrics, and validate end-to-end flows with Control Plane + WorkerHost using PostgreSQL.
 
 ### 4. Frontend & APIs
 
 - **Objective**: Mirror Temporal’s WorkflowService via gRPC with a REST façade and OpenTelemetry instrumentation.
-- **Status**: 📴 API layer not yet defined; proto and handlers outstanding.
-- **Immediate Focus**: Author proto definitions, implement gRPC controllers, shape REST facade, and embed OTLP tracing/metrics defaults.
+- **Status**: ✅ gRPC proto (`workflow_service.proto`), server implementation, and REST controllers (`WorkflowController`, `NamespaceController`, `TaskQueueController`, `HistoryController`) delivered with OTLP-ready telemetry wiring.
+- **Immediate Focus**: Execute end-to-end API smoke tests against in-memory/PostgreSQL providers and harden error-contract consistency.
 
 ### 5. Quality & Tooling
 
 - **Objective**: Provide automated validation from unit through integration, plus developer ergonomics.
-- **Status**: ⚙️ Test projects scaffolded; no meaningful coverage yet.
-- **Immediate Focus**: Seed persistence/unit tests, add deterministic replay suites, and craft CLI smoke tests across in-memory/PostgreSQL providers.
+- **Status**: ✅ Unit suites cover core helpers and repositories; ✅ Integration tests hit PostgreSQL-backed flows; ⚙️ ExecutionEngine tests still pending (project builds with zero test cases).
+- **Immediate Focus**: Add ExecutionEngine coverage (matching dispatcher, system workers), expand REST/gRPC contract tests, and introduce CLI smoke/regression scripts.
 
 ## Roadmap Update (Remaining Phase 1)
 
 ### Priority 0: Core Utility Follow-up
 
-- [x] Add unit coverage for `GoHelpers`, `HashingUtilities`, and `JsonOptions`
+- [ ] Evaluate whether dedicated `GoHelpers` wrappers are needed beyond direct `Hugo.Go` usage
+- [x] Add unit coverage for `HashingUtilities` and `JsonOptions`
 
 ### Priority 1: Complete Persistence Implementation
 
@@ -359,6 +355,7 @@ src/Odin.Persistence/
 - [x] Unit tests for SDK components
 - [x] Integration tests for workflow execution
 - [x] Determinism replay tests
+- [ ] ExecutionEngine service/unit tests (Matching dispatcher, system workers, worker host)
 
 ## Key Decisions and Design Patterns
 
@@ -404,9 +401,9 @@ src/Odin.Persistence/
    - **Impact**: Microsoft.Extensions.Logging.Abstractions flagged as unnecessary in API/Grpc projects  
    - **Resolution**: Remove redundant references or suppress once logging dependencies settle
 
-5. **Test Coverage**  
-   - **Impact**: No automated validation for persistence or utilities  
-   - **Resolution**: Seed xUnit suites starting with Namespace/Workflow/History repositories and core helpers
+5. **ExecutionEngine Test Coverage**  
+   - **Impact**: `tests/Odin.ExecutionEngine.Tests` currently contains no test cases; Matching dispatcher and system workers rely solely on integration behaviour  
+   - **Resolution**: Add focused unit coverage for `TaskQueueDispatcher`, `MatchingService.SubscribeAsync`, worker host loops, and timer/retry paths
 
 ## Dependencies
 
@@ -429,16 +426,16 @@ src/Odin.Persistence/
 
 | Metric | Target | Current | Status |
 |--------|--------|---------|--------|
-| Build Success | 100% | 100% | ✅ |
-| Schema Coverage | 100% | 100% | ✅ |
-| Core Utilities | 100% | 100% | ✅ |
-| Contract Models | 100% | 100% | ✅ |
-| Persistence Interfaces | 100% | 100% | ✅ |
-| Persistence Repos | 100% | 100% | ✅ |
-| SDK Implementation | 100% | 10% | ⏳ |
-| Execution Engine | 100% | 0% | ⏳ |
-| API Implementation | 100% | 0% | ⏳ |
-| Test Coverage | 80%+ | 0% | ⏳ (test projects scaffolded only) |
+| Build Success | 100% | 100% (build + test green on October 23) | ✅ |
+| Schema Coverage | 100% | 100% (10 migration pairs in PostgreSQL/ directory) | ✅ |
+| Core Utilities | 100% | 100% (Errors, HashingUtilities, JsonOptions shipped) | ✅ |
+| Contract Models | 100% | 100% (Namespace, Workflow, History, TaskQueue, Signals/Queries) | ✅ |
+| Persistence Interfaces | 100% | 100% (6 interfaces) | ✅ |
+| Persistence Repos | 100% | 100% (Dapper + in-memory impls with tests) | ✅ |
+| SDK Implementation | 100% | Runtime/registry/executor delivered; WorkerHost samples running; Postgres integration outstanding | ⚙️ |
+| Execution Engine | 100% | History + Matching + SystemWorkers online; dedicated unit tests pending | ⚙️ |
+| API Implementation | 100% | REST + gRPC surfaces live with telemetry; end-to-end validation pending | ⚙️ |
+| Test Coverage | 80%+ | Persistence/SDK/Integration suites passing; ExecutionEngine suite empty | ⚙️ |
 
 ## Documentation Updates
 
@@ -458,17 +455,22 @@ src/Odin.Persistence/
 
 Significant progress made on Phase 1 foundation work. The project now has:
 
-- ✅ Complete persistence schema design
+- ✅ Complete persistence schema design with PostgreSQL migrations and helper tooling
 - ✅ Comprehensive contract models
-- ✅ Core utility library with Hugo integration
-- ✅ Complete persistence layer interfaces
-- ✅ Namespace, Shard, Workflow, History, TaskQueue, and Visibility repository implementations using Hugo Result<T> patterns
-- ✅ Clean build with all projects compiling
+- ✅ Core utility library (Errors, Hashing, Json options) with Hugo integration
+- ✅ Complete persistence layer interfaces + implementations (Dapper + in-memory) backed by unit/integration coverage
+- ✅ History, Matching, and SystemWorker services plus WorkerHost sample wired to the SDK
+- ✅ REST and gRPC control planes with OpenTelemetry instrumentation
+- ✅ Clean build/test cycle with warnings only (NU1510) on October 23
 
-Next session should focus on hardening TaskQueue and Shard lease flows with tests, expanding visibility query coverage (parser + tags), and moving into the Worker SDK core milestones. The foundation is solid with proper Hugo integration patterns established.
+Next session should focus on:
+- Seeding ExecutionEngine-focused unit tests (dispatcher, matching, workers) and closing the empty test project gap
+- Validating full end-to-end flows (API ⇄ ExecutionEngine ⇄ Persistence ⇄ WorkerHost) against PostgreSQL
+- Expanding visibility query parsing scenarios and stress-testing lease/cleanup functions under load
+- Documenting worker/runtime extensibility and versioning guidance for SDK consumers
 
 ---
 
-**Report Generated**: November 9, 2025  
-**Last Build**: Successful (12.8s, 4 warnings)  
-**Next Milestone**: Harden persistence tests, extend visibility search features, and advance Worker SDK core scaffolding
+**Report Generated**: October 23, 2025  
+**Last Build**: Successful (`dotnet build` ~25.7s, `dotnet test` ~35s, 4 warnings)  
+**Next Milestone**: ExecutionEngine test coverage, PostgreSQL end-to-end validation, and reinforced visibility search features

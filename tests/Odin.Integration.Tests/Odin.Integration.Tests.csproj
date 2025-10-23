@@ -22,6 +22,10 @@
     <ProjectReference Include="..\..\src\Odin.Persistence\Odin.Persistence.csproj" />
     <ProjectReference Include="..\..\src\Odin.Contracts\Odin.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Odin.Core\Odin.Core.csproj" />
+    <ProjectReference Include="..\..\src\Odin.ExecutionEngine.Matching\Odin.ExecutionEngine.Matching.csproj" />
+    <ProjectReference Include="..\..\src\Odin.Sdk\Odin.Sdk.csproj" />
+    <ProjectReference Include="..\..\src\Odin.WorkerHost\Odin.WorkerHost.csproj" />
+    <ProjectReference Include="..\..\samples\OrderProcessing.Shared\OrderProcessing.Shared.csproj" />
     <ProjectReference Include="..\..\src\Odin.ControlPlane.Api\Odin.ControlPlane.Api.csproj" Aliases="api" />
     <ProjectReference Include="..\..\src\Odin.ControlPlane.Grpc\Odin.ControlPlane.Grpc.csproj" Aliases="grpc" />
   </ItemGroup>
