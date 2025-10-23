@@ -1,7 +1,7 @@
 # Phase 2 Readiness Plan
 
-**Date**: October 24, 2025  
-**Status**: Not Started – Planning Approved  
+**Date**: October 23, 2025  
+**Status**: In Progress – Kickoff Underway  
 **Reporting Cadence**: Weekly updates every Friday, rolling 4-week snapshot
 
 ## Phase 2 Objectives
@@ -23,6 +23,21 @@
 | M5 – Advanced workflow APIs & CI/CD | Week 6 | Ship schedule/retry enhancements, container images, GitHub Actions pipelines, smoke tests, and release documentation integrated with the UI. |
 
 > **Note**: Milestones build on each other; delays should be communicated via the weekly report and reflected in the tracking table below.
+
+## Kickoff Update (October 23, 2025)
+
+- Weekly execution cadence confirmed; first Friday status review scheduled for October 24.  
+- Milestone and workstream owners identified across Observability, Control Plane UI, Persistence, Execution/Workers, and DevEx.  
+- Phase 2 GitHub Projects board seeded with initial M1 issues (OTEL control plane instrumentation, UI scaffold, multi-worker sandbox environment).  
+- Telemetry baseline checklist drafted to capture pre-instrumentation metrics for comparison once OTEL is enabled.
+
+## Week 1 Focus (Oct 23 – Oct 31, 2025)
+
+- Observability: instrument control plane API + worker hosts with OTEL tracing/metrics prototype, capture baseline dashboards.  
+- Control Plane UI: finalize React + TypeScript stack decision and scaffold repository with routing/layout, start workflow list wireframes.  
+- Control Plane & Deployment: stand up Kubernetes sandbox with ≥3 worker hosts, validate sticky routing and capture initial operational metrics.  
+- Persistence: outline SQL Server migration strategy (schema gaps, stored procedures) and Cosmos DB data modeling approach for workflow/visibility entities.  
+- Developer Experience & CI/CD: draft GitHub Actions workflow skeleton (build, unit, lint) and document environment bootstrap steps for contributors.
 
 ## Workstreams & Deliverables
 
@@ -111,7 +126,7 @@
 
 ## Next Steps
 
-1. Approve revised Phase 2 goals prioritising observability foundations alongside the web UI and multi-worker operations.  
-2. Break down observability, UI, and persistence expansion workstreams into GitHub issues/epics, assign owners.  
-3. Stand up shared dashboards (Jira/Boards) linking telemetry coverage, UI adoption metrics, database compatibility progress, and worker soak tests.  
-4. Kick off M1 tasks: instrument core services with OTEL, wireframe the Cadence-style UI, scaffold the front-end project, and align infra team on multi-worker sandbox requirements.
+- [x] Approve revised Phase 2 goals prioritising observability foundations alongside the web UI and multi-worker operations.  
+- [ ] Break down observability, UI, and persistence expansion workstreams into GitHub issues/epics, assign owners.  
+- [ ] Stand up shared dashboards (Jira/Boards) linking telemetry coverage, UI adoption metrics, database compatibility progress, and worker soak tests.  
+- [ ] Kick off M1 tasks: instrument core services with OTEL, wireframe the Cadence-style UI, scaffold the front-end project, and align infra team on multi-worker sandbox requirements.
