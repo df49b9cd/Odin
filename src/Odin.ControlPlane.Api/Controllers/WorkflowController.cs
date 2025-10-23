@@ -1,8 +1,11 @@
+using System;
+using System.Globalization;
 using System.Text.Json;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.AspNetCore.Mvc;
 using Odin.Core;
+using Odin.Persistence.Interfaces;
 using GrpcGetWorkflowRequest = Odin.ControlPlane.Grpc.GetWorkflowRequest;
 using GrpcQueryWorkflowRequest = Odin.ControlPlane.Grpc.QueryWorkflowRequest;
 using GrpcQueryWorkflowResponse = Odin.ControlPlane.Grpc.QueryWorkflowResponse;
@@ -14,6 +17,8 @@ using ProtoWorkflowState = Odin.ControlPlane.Grpc.WorkflowState;
 using RpcStatusCode = Grpc.Core.StatusCode;
 using WorkflowExecutionModel = Odin.Contracts.WorkflowExecution;
 using WorkflowServiceClient = Odin.ControlPlane.Grpc.WorkflowService.WorkflowServiceClient;
+using WorkflowState = Odin.Contracts.WorkflowState;
+using WorkflowExecutionInfoModel = Odin.Contracts.WorkflowExecutionInfo;
 
 namespace Odin.ControlPlane.Api.Controllers;
 
@@ -25,10 +30,116 @@ namespace Odin.ControlPlane.Api.Controllers;
 [Produces("application/json")]
 public sealed class WorkflowController(
     WorkflowServiceClient workflowClient,
+    IWorkflowExecutionRepository workflowRepository,
+    INamespaceRepository namespaceRepository,
     ILogger<WorkflowController> logger) : ControllerBase
 {
     private readonly WorkflowServiceClient _workflowClient = workflowClient;
+    private readonly IWorkflowExecutionRepository _workflowRepository = workflowRepository;
+    private readonly INamespaceRepository _namespaceRepository = namespaceRepository;
     private readonly ILogger<WorkflowController> _logger = logger;
+
+    /// <summary>
+    /// List workflow executions within a namespace.
+    /// </summary>
+    [HttpGet]
+    [ProducesResponseType(typeof(ListWorkflowsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ListWorkflows(
+        [FromQuery] string? namespaceId = null,
+        [FromQuery] string? namespaceName = null,
+        [FromQuery] string? status = null,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? pageToken = null,
+        CancellationToken cancellationToken = default)
+    {
+        var (resolvedNamespaceId, resolveError) = await ResolveNamespaceAsync(
+            namespaceId,
+            namespaceName,
+            cancellationToken).ConfigureAwait(false);
+
+        if (resolveError is not null)
+        {
+            return resolveError;
+        }
+
+        var normalizedPageSize = pageSize switch
+        {
+            <= 0 => 50,
+            > 200 => 200,
+            _ => pageSize
+        };
+
+        var offset = 0;
+        if (!string.IsNullOrWhiteSpace(pageToken))
+        {
+            if (!int.TryParse(pageToken, out offset) || offset < 0)
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    Message = "pageToken must be a non-negative integer offset.",
+                    Code = "INVALID_PAGE_TOKEN"
+                });
+            }
+        }
+
+        WorkflowState? stateFilter = null;
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (System.Enum.TryParse<WorkflowState>(status, ignoreCase: true, out var parsed))
+            {
+                stateFilter = parsed;
+            }
+            else
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    Message = $"Unknown workflow status '{status}'.",
+                    Code = "INVALID_STATUS"
+                });
+            }
+        }
+
+        var listResult = await _workflowRepository
+            .ListAsync(
+                resolvedNamespaceId.ToString(),
+                stateFilter,
+                normalizedPageSize,
+                offset == 0 ? null : offset.ToString(CultureInfo.InvariantCulture),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (listResult.IsFailure)
+        {
+            var error = listResult.Error!;
+            var message = string.IsNullOrWhiteSpace(error.Message)
+                ? "Failed to list workflows."
+                : error.Message;
+            var code = string.IsNullOrWhiteSpace(error.Code) ? "LIST_FAILED" : error.Code;
+
+            _logger.LogError(
+                "Failed to list workflows for namespace {NamespaceId}: {Error}",
+                resolvedNamespaceId,
+                message);
+
+            return CreateErrorResult(
+                StatusCodes.Status500InternalServerError,
+                message,
+                code);
+        }
+
+        var workflows = listResult.Value;
+        string? nextPageToken = workflows.Count == normalizedPageSize
+            ? (offset + workflows.Count).ToString(CultureInfo.InvariantCulture)
+            : null;
+
+        return Ok(new ListWorkflowsResponse
+        {
+            Workflows = workflows,
+            NextPageToken = nextPageToken
+        });
+    }
 
     /// <summary>
     /// Start a new workflow execution.
@@ -249,6 +360,67 @@ public sealed class WorkflowController(
         }
     }
 
+    private async Task<(Guid NamespaceId, IActionResult? Error)> ResolveNamespaceAsync(
+        string? namespaceId,
+        string? namespaceName,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(namespaceId))
+        {
+            if (Guid.TryParse(namespaceId, out var parsed))
+            {
+                return (parsed, null);
+            }
+
+            return (Guid.Empty, BadRequest(new ErrorResponse
+            {
+                Message = "namespaceId must be a valid GUID.",
+                Code = "INVALID_NAMESPACE"
+            }));
+        }
+
+        var lookupName = string.IsNullOrWhiteSpace(namespaceName)
+            ? "default"
+            : namespaceName!;
+
+        var namespaceResult = await _namespaceRepository
+            .GetByNameAsync(lookupName, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (namespaceResult.IsFailure)
+        {
+            var error = namespaceResult.Error!;
+            var message = string.IsNullOrWhiteSpace(error.Message)
+                ? $"Namespace '{lookupName}' not found."
+                : error.Message;
+            var code = string.IsNullOrWhiteSpace(error.Code)
+                ? OdinErrorCodes.NamespaceNotFound
+                : error.Code;
+
+            IActionResult action;
+            if (string.Equals(code, OdinErrorCodes.NamespaceNotFound, StringComparison.OrdinalIgnoreCase))
+            {
+                action = NotFound(new ErrorResponse
+                {
+                    Message = message,
+                    Code = code
+                });
+            }
+            else
+            {
+                action = BadRequest(new ErrorResponse
+                {
+                    Message = message,
+                    Code = code
+                });
+            }
+
+            return (Guid.Empty, action);
+        }
+
+        return (namespaceResult.Value.NamespaceId, null);
+    }
+
     private IActionResult HandleRpcException(
         RpcException exception,
         string defaultMessage,
@@ -363,6 +535,15 @@ public sealed class WorkflowController(
             Value.KindOneofCase.ListValue => value.ListValue.Values.Select(ConvertValue).ToList(),
             _ => null
         };
+}
+
+/// <summary>
+/// Response representing a page of workflow executions.
+/// </summary>
+public sealed record ListWorkflowsResponse
+{
+    public required IReadOnlyList<WorkflowExecutionInfoModel> Workflows { get; init; }
+    public string? NextPageToken { get; init; }
 }
 
 /// <summary>

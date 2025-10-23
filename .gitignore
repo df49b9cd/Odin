@@ -56,6 +56,14 @@ Thumbs.db
 logs/
 *.log
 
+# Node / frontend
+node_modules/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+dist/
+*.tsbuildinfo
+
 # Deployment
 publish/
 deploy/

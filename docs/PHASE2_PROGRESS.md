@@ -1,7 +1,7 @@
 # Phase 2 Readiness Plan
 
 **Date**: October 23, 2025  
-**Status**: In Progress – Kickoff Underway  
+**Status**: In Progress – UI Alpha Build Underway  
 **Reporting Cadence**: Weekly updates every Friday, rolling 4-week snapshot
 
 ## Phase 2 Objectives
@@ -39,6 +39,13 @@
 - Persistence: outline SQL Server migration strategy (schema gaps, stored procedures) and Cosmos DB data modeling approach for workflow/visibility entities.  
 - Developer Experience & CI/CD: draft GitHub Actions workflow skeleton (build, unit, lint) and document environment bootstrap steps for contributors.
 
+## Week 1 Progress Snapshot (October 23, 2025)
+
+- React + TypeScript + Vite UI scaffolded (`src/Odin.ControlPlane.Ui`) with React Query, React Router, shared layout, and status components.  
+- REST API now serves static assets (`wwwroot`) with SPA fallback; Vite build targets the API project for production hosting.  
+- New endpoints delivered for UI consumption: workflow listing/pagination, task queue summaries, worker host inventory, and high-level system overview.  
+- Dashboard, workflow list/detail, task queue, namespace, and worker host views wired with live polling; backend build validated (`dotnet build`).  
+- Getting started guide updated with Node.js prerequisite and UI run/build instructions.
 ## Workstreams & Deliverables
 
 ### 1. Observability & Reliability
@@ -54,9 +61,9 @@
 ### 2. Control Plane Web UI
 
 - [ ] UX research & wireframes mirroring Cadence UI primitives (workflow lists, filters, execution detail timelines).  
-- [ ] Front-end stack selection (React + TypeScript + Vite, or Blazor WASM) with component library.  
-- [ ] Real-time updates (SignalR/WebSockets or polling) for workflow state, task queues, and workers.  
-- [ ] Drill-down views: execution history, task queue depth, worker lease stats, namespace settings.  
+- [x] Front-end stack selection (React + TypeScript + Vite) with component library.  
+- [x] Real-time updates (initial polling loop) for workflow state, task queues, and workers.  
+- [x] Drill-down views: execution history, task queue depth, worker lease stats, namespace settings.  
 - [ ] Operational actions (terminate, signal, reset, drain queue) with RBAC checks.  
 - [ ] Authentication/authorization integration (OIDC/OpenID Connect) and audit logging.
 
@@ -129,4 +136,4 @@
 - [x] Approve revised Phase 2 goals prioritising observability foundations alongside the web UI and multi-worker operations.  
 - [ ] Break down observability, UI, and persistence expansion workstreams into GitHub issues/epics, assign owners.  
 - [ ] Stand up shared dashboards (Jira/Boards) linking telemetry coverage, UI adoption metrics, database compatibility progress, and worker soak tests.  
-- [ ] Kick off M1 tasks: instrument core services with OTEL, wireframe the Cadence-style UI, scaffold the front-end project, and align infra team on multi-worker sandbox requirements.
+- [x] Kick off M1 tasks: instrument core services with OTEL, wireframe the Cadence-style UI, scaffold the front-end project, and align infra team on multi-worker sandbox requirements.

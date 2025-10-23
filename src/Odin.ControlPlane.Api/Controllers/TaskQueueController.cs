@@ -1,3 +1,4 @@
+using System.Linq;
 using Hugo;
 using Microsoft.AspNetCore.Mvc;
 using Odin.ExecutionEngine.Matching;
@@ -18,6 +19,46 @@ public sealed class TaskQueueController(
 {
     private readonly IMatchingService _matchingService = matchingService;
     private readonly ILogger<TaskQueueController> _logger = logger;
+
+    /// <summary>
+    /// List task queues with their pending task counts.
+    /// </summary>
+    [HttpGet("queues")]
+    [ProducesResponseType(typeof(ListQueuesResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListQueues(CancellationToken cancellationToken = default)
+    {
+        var listResult = await _matchingService
+            .ListQueuesAsync(null, cancellationToken)
+            .ConfigureAwait(false);
+
+        var responseResult = listResult
+            .OnFailure(error => _logger.LogError(
+                "Failed to list task queues: {Error}",
+                error.Message))
+            .Map(queues =>
+            {
+                var summaries = queues
+                    .OrderByDescending(static kvp => kvp.Value)
+                    .Select(static kvp => new TaskQueueSummary
+                    {
+                        QueueName = kvp.Key,
+                        PendingTasks = kvp.Value
+                    })
+                    .ToArray();
+
+                return new ListQueuesResponse
+                {
+                    Queues = summaries,
+                    GeneratedAt = DateTimeOffset.UtcNow
+                };
+            });
+
+        return responseResult.Match<IActionResult>(
+            summary => Ok(summary),
+            error => StatusCode(
+                StatusCodes.Status500InternalServerError,
+                AsErrorResponse(error, "LIST_FAILED", "Failed to list task queues")));
+    }
 
     /// <summary>
     /// Poll for a task from the specified task queue (long poll).
@@ -313,4 +354,22 @@ public sealed record FailTaskRequest
     public required string WorkerIdentity { get; init; }
     public string? Error { get; init; }
     public bool? Requeue { get; init; }
+}
+
+/// <summary>
+/// Summary information about a task queue.
+/// </summary>
+public sealed record TaskQueueSummary
+{
+    public required string QueueName { get; init; }
+    public required int PendingTasks { get; init; }
+}
+
+/// <summary>
+/// Response containing task queue summaries.
+/// </summary>
+public sealed record ListQueuesResponse
+{
+    public required IReadOnlyList<TaskQueueSummary> Queues { get; init; }
+    public required DateTimeOffset GeneratedAt { get; init; }
 }

@@ -119,6 +119,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors();
+app.UseStaticFiles();
 
 app.MapControllers();
 app.MapPrometheusScrapingEndpoint();
@@ -132,6 +133,8 @@ app.MapGet("/health", () => Results.Ok(new
 }))
 .WithName("HealthCheck")
 .WithTags("Health");
+
+app.MapFallbackToFile("{*path}", "index.html");
 
 app.Run();
 

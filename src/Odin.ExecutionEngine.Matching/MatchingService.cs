@@ -1,3 +1,4 @@
+using System;
 using System.Text.Json;
 using Hugo;
 using Microsoft.Extensions.Logging;
@@ -195,6 +196,29 @@ public sealed class MatchingService(
     }
 
     /// <summary>
+    /// Lists all task queues with their pending counts.
+    /// </summary>
+    public async Task<Result<Dictionary<string, int>>> ListQueuesAsync(
+        string? namespaceId = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return (await _taskQueueRepository.ListQueuesAsync(namespaceId, cancellationToken).ConfigureAwait(false))
+                .OnFailure(error => _logger.LogError(
+                    "Failed to list task queues: {Error}",
+                    error.Message))
+                .Map(queues => new Dictionary<string, int>(queues, StringComparer.OrdinalIgnoreCase));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error listing task queues");
+            return Result.Fail<Dictionary<string, int>>(
+                Error.From($"List queues failed: {ex.Message}", OdinErrorCodes.TaskQueueError));
+        }
+    }
+
+    /// <summary>
     /// Gets queue statistics.
     /// </summary>
     public async Task<Result<QueueStats>> GetQueueStatsAsync(
@@ -312,6 +336,10 @@ public interface IMatchingService
         Guid leaseId,
         string reason,
         bool requeue = true,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<Dictionary<string, int>>> ListQueuesAsync(
+        string? namespaceId = null,
         CancellationToken cancellationToken = default);
 
     Task<Result<QueueStats>> GetQueueStatsAsync(

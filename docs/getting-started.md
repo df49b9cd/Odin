@@ -5,6 +5,7 @@ This guide will help you get started with the Hugo Durable Orchestrator.
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+- [Node.js 20 LTS](https://nodejs.org/en/download) (for the control plane UI)
 - [Docker](https://www.docker.com/get-started) and Docker Compose (for local development)
 - PostgreSQL 14+ or MySQL 8.0.19+ (or use Docker Compose)
 
@@ -56,7 +57,25 @@ cd src/Odin.ExecutionEngine.SystemWorkers
 dotnet run
 ```
 
-### 4. Verify Installation
+### 4. Start the Control Plane UI
+
+The UI is served by the REST API once built. During development you can run it with Vite for live reload:
+
+```bash
+cd src/Odin.ControlPlane.Ui
+npm install
+npm run dev
+```
+
+The dev server proxies API calls to `http://localhost:8080`. To produce a production build that the API can serve from `wwwroot`:
+
+```bash
+npm run build
+```
+
+This generates static assets under `src/Odin.ControlPlane.Api/wwwroot`. Restart the API after building to pick up fresh assets.
+
+### 5. Verify Installation
 
 Check service health:
 
@@ -73,7 +92,7 @@ Access monitoring dashboards:
 - Jaeger: http://localhost:16686
 - Prometheus: http://localhost:9090
 
-### 5. Create Your First Namespace
+### 6. Create Your First Namespace
 
 ```bash
 # Using CLI (TODO: implement)
