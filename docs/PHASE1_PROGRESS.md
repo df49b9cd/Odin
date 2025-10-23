@@ -355,10 +355,10 @@ src/Odin.Persistence/
 
 ### Priority 5: Testing
 
-- [ ] Unit tests for persistence layer
-- [ ] Unit tests for SDK components
-- [ ] Integration tests for workflow execution
-- [ ] Determinism replay tests
+- [x] Unit tests for persistence layer
+- [x] Unit tests for SDK components
+- [x] Integration tests for workflow execution
+- [x] Determinism replay tests
 
 ## Key Decisions and Design Patterns
 

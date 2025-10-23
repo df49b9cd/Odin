@@ -100,6 +100,38 @@ public class InMemoryWorkflowExecutionRepositoryTests
         fetched.Value.CompletedAt.ShouldNotBeNull();
     }
 
+    [Fact]
+    public async Task UpdateWithEventIdAsync_AdvancesEventSequenceAndVersion()
+    {
+        var repository = CreateRepository();
+        var execution = CreateExecution();
+        var ct = TestContext.Current.CancellationToken;
+
+        var created = await repository.CreateAsync(execution, ct);
+        created.IsSuccess.ShouldBeTrue(created.Error?.Message ?? "CreateAsync failed");
+
+        var toUpdate = created.Value with
+        {
+            LastProcessedEventId = 4
+        };
+
+        var updated = await repository.UpdateWithEventIdAsync(toUpdate, expectedVersion: 1, newEventId: 6, ct);
+
+        updated.IsSuccess.ShouldBeTrue(updated.Error?.Message ?? "UpdateWithEventIdAsync failed");
+        updated.Value.Version.ShouldBe(2);
+        updated.Value.LastProcessedEventId.ShouldBe(4);
+        updated.Value.NextEventId.ShouldBe(6);
+
+        var fetched = await repository.GetAsync(
+            execution.NamespaceId.ToString(),
+            execution.WorkflowId,
+            execution.RunId.ToString(),
+            ct);
+
+        fetched.IsSuccess.ShouldBeTrue(fetched.Error?.Message ?? "GetAsync failed");
+        fetched.Value.NextEventId.ShouldBe(6);
+    }
+
     private static WorkflowExecution CreateExecution()
     {
         var namespaceId = Guid.NewGuid();
