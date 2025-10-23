@@ -1,12 +1,12 @@
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
-using Odin.ControlPlane.Grpc;
 using Odin.Contracts;
+using Odin.ControlPlane.Grpc;
 using Odin.Persistence.Interfaces;
-using WorkflowStateProto = Odin.ControlPlane.Grpc.WorkflowState;
-using ProtoWorkflowExecution = Odin.ControlPlane.Grpc.WorkflowExecution;
 using DomainWorkflowExecution = Odin.Contracts.WorkflowExecution;
 using DomainWorkflowState = Odin.Contracts.WorkflowState;
+using ProtoWorkflowExecution = Odin.ControlPlane.Grpc.WorkflowExecution;
+using WorkflowStateProto = Odin.ControlPlane.Grpc.WorkflowState;
 
 namespace Odin.ControlPlane.Grpc.Services;
 

@@ -5,8 +5,6 @@ using Grpc.Core;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Odin.Core;
-using WorkflowExecutionModel = Odin.Contracts.WorkflowExecution;
-using WorkflowServiceClient = Odin.ControlPlane.Grpc.WorkflowService.WorkflowServiceClient;
 using GrpcGetWorkflowRequest = Odin.ControlPlane.Grpc.GetWorkflowRequest;
 using GrpcQueryWorkflowRequest = Odin.ControlPlane.Grpc.QueryWorkflowRequest;
 using GrpcQueryWorkflowResponse = Odin.ControlPlane.Grpc.QueryWorkflowResponse;
@@ -17,6 +15,8 @@ using GrpcTerminateWorkflowRequest = Odin.ControlPlane.Grpc.TerminateWorkflowReq
 using ProtoWorkflowExecution = Odin.ControlPlane.Grpc.WorkflowExecution;
 using ProtoWorkflowState = Odin.ControlPlane.Grpc.WorkflowState;
 using RpcStatusCode = Grpc.Core.StatusCode;
+using WorkflowExecutionModel = Odin.Contracts.WorkflowExecution;
+using WorkflowServiceClient = Odin.ControlPlane.Grpc.WorkflowService.WorkflowServiceClient;
 
 namespace Odin.ControlPlane.Api.Controllers;
 

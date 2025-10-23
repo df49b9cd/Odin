@@ -1,11 +1,11 @@
-using OpenTelemetry.Metrics;
-using OpenTelemetry.Resources;
-using OpenTelemetry.Trace;
 using Odin.ControlPlane.Grpc.Services;
 using Odin.ExecutionEngine.History;
 using Odin.ExecutionEngine.Matching;
 using Odin.Persistence;
 using Odin.Persistence.Interfaces;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -83,3 +83,10 @@ app.MapGet("/", () =>
     "Odin Control Plane gRPC service. Use a gRPC client to interact with the WorkflowService.");
 
 app.Run();
+
+namespace Odin.ControlPlane.Grpc
+{
+    public partial class Program
+    {
+    }
+}

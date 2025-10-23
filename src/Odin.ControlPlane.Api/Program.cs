@@ -1,12 +1,12 @@
 using System.Net.Http;
-using OpenTelemetry.Metrics;
-using OpenTelemetry.Resources;
-using OpenTelemetry.Trace;
 using Odin.ControlPlane.Grpc;
 using Odin.ExecutionEngine.History;
 using Odin.ExecutionEngine.Matching;
 using Odin.Persistence;
 using Odin.Persistence.Interfaces;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
 
@@ -135,3 +135,10 @@ app.MapGet("/health", () => Results.Ok(new
 .WithTags("Health");
 
 app.Run();
+
+namespace Odin.ControlPlane.Api
+{
+    public partial class Program
+    {
+    }
+}
