@@ -218,7 +218,7 @@ src/Odin.Persistence/
 ## Validation Notes
 
 - Ran `dotnet build` on October 23, 2025 (warnings only, no failures)
-- Ran `dotnet test` on October 23, 2025 (Persistence, SDK, Control Plane, and Integration projects all pass; ExecutionEngine test project currently contains no test classes)
+- Ran `dotnet test` on October 23, 2025 (Persistence, SDK, Control Plane, ExecutionEngine, and Integration suites all pass; ExecutionEngine tests now cover MatchingService and SystemWorker flows)
 - Confirmed 10 PostgreSQL migrations remain tracked in `src/Odin.Persistence/Migrations/PostgreSQL`
 - Added Docker-based `tools/migrate.sh` wrapper around `golang-migrate` CLI
 - Implemented Dapper-backed WorkflowExecutionRepository with optimistic locking and JSON mapping
@@ -244,7 +244,7 @@ src/Odin.Persistence/
 - **Repository Implementations**: 6 implemented (Namespace, Shard, WorkflowExecution, History, TaskQueue, Visibility), 0 stubbed
 - **Total Contract Models**: 50+ record types
 - **Latest `dotnet build` Duration**: ~25.7 seconds (Debug, cold cache)
-- **Latest `dotnet test` Duration**: ~35 seconds (six test projects; ExecutionEngine tests empty but project builds)
+- **Latest `dotnet test` Duration**: ~35 seconds (six test projects; ExecutionEngine suite currently runs six unit tests)
 
 ## Architecture Highlights
 
@@ -309,7 +309,7 @@ src/Odin.Persistence/
 ### 5. Quality & Tooling
 
 - **Objective**: Provide automated validation from unit through integration, plus developer ergonomics.
-- **Status**: ✅ Unit suites cover core helpers and repositories; ✅ Integration tests hit PostgreSQL-backed flows; ⚙️ ExecutionEngine tests still pending (project builds with zero test cases).
+- **Status**: ✅ Unit suites cover core helpers and repositories; ✅ Integration tests hit PostgreSQL-backed flows; ⚙️ ExecutionEngine unit tests seeded (MatchingService + SystemWorkers) with additional coverage planned.
 - **Immediate Focus**: Add ExecutionEngine coverage (matching dispatcher, system workers), expand REST/gRPC contract tests, and introduce CLI smoke/regression scripts.
 
 ## Roadmap Update (Remaining Phase 1)
