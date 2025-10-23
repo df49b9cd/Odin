@@ -49,7 +49,7 @@ All factory methods ultimately increment success/failure counters through `GoDia
 `Result` is split across several partial classes:
 
 - Creation: `Ok`, `Fail`, `FromOptional`, `Try`, `TryAsync`.
-- Collection combinators: `Sequence`, `Traverse`, and async counterparts for `IEnumerable` and `IAsyncEnumerable` sources. Cancellation tokens propagate through every async overload; failures short-circuit and propagate the first `Error`.
+- Collection combinators: `Sequence`, `Traverse`, `Group`, `Partition`, and `Window` plus async counterparts for `IEnumerable` and `IAsyncEnumerable` sources. Cancellation tokens propagate through every async overload; failures short-circuit and surface the first `Error`.
 - Streaming: `MapStreamAsync` creates an `IAsyncEnumerable<Result<T>>` that stops as soon as a failure or cancellation occurs.
 - Batch execution: `WhenAll` returns the aggregated values when all operations succeed; `WhenAny` resolves as soon as the first success arrives and compensates remaining operations.
 - Retry orchestration: `RetryWithPolicyAsync` executes a delegate under a `ResultExecutionPolicy` (see [Policies](#hugopolicies-namespace)).
@@ -87,7 +87,8 @@ The companion static class `Optional` offers convenience factories (`FromNullabl
 - Timers: `DelayAsync`, `NewTicker`, `Tick`, `After`, `AfterAsync`. All overloads accept an optional `TimeProvider`; `TimeProvider.System` is used by default so the APIs align with `Task.Delay(TimeSpan, TimeProvider)` guidance from [.NET TimeProvider docs](https://learn.microsoft.com/en-us/dotnet/standard/datetime/timeprovider-overview). The returned `GoTicker` implements `IDisposable`/`IAsyncDisposable`.
 - Select workflows: `SelectAsync` (with/without timeout) and `Select<TResult>(...)` builder creation. Internally the logic honours case priority and speculative reads for ready channels. Timeouts rely on the supplied `TimeProvider` — use fake providers in deterministic tests.
 - Channel builders: `BoundedChannel<T>(capacity)`, `PrioritizedChannel<T>()`, `PrioritizedChannel<T>(levels)` return fluent builders (see [Channel composition](#channel-composition)).
-- Fan-in/out: `SelectFanInAsync` (five overloads), `FanInAsync`/`FanIn`, `FanOutAsync`/`FanOut`. Each method propagates `Error.Canceled` and ensures writers are completed appropriately.
+- Channel fan-in/out: `SelectFanInAsync` (five overloads), `FanInAsync`/`FanIn`, `FanOutAsync`/`FanOut`. Each method propagates `Error.Canceled` and ensures writers are completed appropriately while completing writers/readers deterministically.
+- Pipeline orchestration: `FanOutAsync` materialises concurrent `Result<T>` operations via `Result.WhenAll`, `RaceAsync` surfaces the first success through `Result.WhenAny`, `WithTimeoutAsync` wraps work with deadline-aware cancellation, and `RetryAsync` executes delegates under an exponential backoff policy built from `ResultExecutionPolicy`.
 - Task runners: `Run(Func<Task>)`, `Run(Func<CancellationToken, Task>)` wrap `Task.Run`, keeping syntax consistent with Go’s `go func()` idiom.
 - Channel factories: `MakeChannel` overloads accept optional capacity/`BoundedChannelOptions`/`UnboundedChannelOptions` or `PrioritizedChannelOptions`. `MakePrioritizedChannel` creates multi-level queues with default priority support.
 - Result helpers: `Ok<T>` and `Err<T>` wrap `Result.Ok`/`Result.Fail`. `CancellationError` exposes `Error.Canceled()` for convenience.
@@ -97,13 +98,13 @@ Additional types:
 - `Go.Unit`: value-type sentinel (`Unit.Value`).
 - `Go.GoTicker`: wrapper over `TimerChannel`; exposes `Reader`, `ReadAsync`, `TryRead`, `Stop`, `StopAsync`.
 - `Defer`: RAII helper mirroring Go’s `defer`, executing the supplied `Action` when disposed.
-- `GoWaitGroupExtensions.Go`: extension overloads for `WaitGroup` that apply the `Go.Run` semantic.
+- `GoWaitGroupExtensions.Go`: extension overloads for `WaitGroup` (async and cancellation-aware) that apply the `Go.Run` semantic.
 
 #### Synchronisation primitives
 
 | Type | Highlights |
 | --- | --- |
-| `WaitGroup` | Tracks outstanding async operations. `Add(int)`, `Add(Task)`, `Go(Func<Task>)`, `Done()`, `WaitAsync()` (with optional `TimeSpan` + `TimeProvider`). Diagnostics emit `waitgroup.*` metrics. Avoid negative counters — the implementation guards against it. |
+| `WaitGroup` | Tracks outstanding async operations. `Add(int)`, `Add(Task)`, `Go(Func<Task>, CancellationToken = default)`, `Done()`, `WaitAsync(CancellationToken)` plus `WaitAsync(TimeSpan timeout, TimeProvider? provider = null, CancellationToken cancellationToken = default)` (returns `bool`). Diagnostics emit `waitgroup.*` metrics. Avoid negative counters — the implementation guards against it. |
 | `Mutex` | Hybrid mutex with synchronous `EnterScope()` (returns a disposable scope) and asynchronous `LockAsync`. Always dispose the returned scope/releaser. |
 | `RwMutex` | Reader/writer lock with sync (`EnterReadScope`, `EnterWriteScope`) and async (`RLockAsync`, `LockAsync`) APIs. Cancelled acquisitions propagate `OperationCanceledException`. |
 | `Once` | Executes an `Action` at most once. Subsequent calls no-op. |

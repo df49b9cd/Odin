@@ -61,6 +61,7 @@ docker-compose logs -f odin-grpc
 ```
 
 Services will be available at:
+
 - gRPC API: `localhost:7233`
 - REST API: `localhost:8080`
 - Grafana: `http://localhost:3000` (admin/admin)
