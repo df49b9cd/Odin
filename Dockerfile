@@ -6,6 +6,7 @@ WORKDIR /src
 COPY Odin.slnx ./
 COPY Directory.Build.props ./
 COPY Directory.Packages.props ./
+COPY NuGet.config ./
 COPY src/Odin.Contracts/*.csproj ./src/Odin.Contracts/
 COPY src/Odin.Core/*.csproj ./src/Odin.Core/
 COPY src/Odin.Persistence/*.csproj ./src/Odin.Persistence/
@@ -28,13 +29,10 @@ COPY tests/Odin.Integration.Tests/*.csproj ./tests/Odin.Integration.Tests/
 COPY tests/Odin.Sdk.Tests/*.csproj ./tests/Odin.Sdk.Tests/
 
 # Restore dependencies
-RUN dotnet restore
+RUN dotnet restore --configfile NuGet.config
 
 # Copy source code
 COPY . .
-
-# Build solution
-RUN dotnet build -c Release --no-restore
 
 # UI build stage
 FROM node:22-alpine AS ui-build
@@ -53,24 +51,29 @@ RUN cd src/Odin.ControlPlane.Ui && npm run build
 
 # Publish stage - Control Plane API
 FROM build AS publish-api
-RUN dotnet publish src/Odin.ControlPlane.Api/Odin.ControlPlane.Api.csproj -c Release -o /app/publish/api --no-build
+RUN dotnet restore src/Odin.ControlPlane.Api/Odin.ControlPlane.Api.csproj --configfile NuGet.config
+RUN dotnet publish src/Odin.ControlPlane.Api/Odin.ControlPlane.Api.csproj -c Release -o /app/publish/api --no-restore
 COPY --from=ui-build /workspace/src/Odin.ControlPlane.Api/wwwroot /app/publish/api/wwwroot
 
 # Publish stage - gRPC Service
 FROM build AS publish-grpc
-RUN dotnet publish src/Odin.ControlPlane.Grpc/Odin.ControlPlane.Grpc.csproj -c Release -o /app/publish/grpc --no-build
+RUN dotnet restore src/Odin.ControlPlane.Grpc/Odin.ControlPlane.Grpc.csproj --configfile NuGet.config
+RUN dotnet publish src/Odin.ControlPlane.Grpc/Odin.ControlPlane.Grpc.csproj -c Release -o /app/publish/grpc --no-restore
 
 # Publish stage - System Workers
 FROM build AS publish-workers
-RUN dotnet publish src/Odin.ExecutionEngine.SystemWorkers/Odin.ExecutionEngine.SystemWorkers.csproj -c Release -o /app/publish/workers --no-build
+RUN dotnet restore src/Odin.ExecutionEngine.SystemWorkers/Odin.ExecutionEngine.SystemWorkers.csproj --configfile NuGet.config
+RUN dotnet publish src/Odin.ExecutionEngine.SystemWorkers/Odin.ExecutionEngine.SystemWorkers.csproj -c Release -o /app/publish/workers --no-restore
 
 # Publish stage - Worker Host
 FROM build AS publish-workerhost
-RUN dotnet publish src/Odin.WorkerHost/Odin.WorkerHost.csproj -c Release -o /app/publish/workerhost --no-build
+RUN dotnet restore src/Odin.WorkerHost/Odin.WorkerHost.csproj --configfile NuGet.config
+RUN dotnet publish src/Odin.WorkerHost/Odin.WorkerHost.csproj -c Release -o /app/publish/workerhost --no-restore
 
 # Publish stage - CLI
 FROM build AS publish-cli
-RUN dotnet publish src/Odin.Cli/Odin.Cli.csproj -c Release -o /app/publish/cli --no-build
+RUN dotnet restore src/Odin.Cli/Odin.Cli.csproj --configfile NuGet.config
+RUN dotnet publish src/Odin.Cli/Odin.Cli.csproj -c Release -o /app/publish/cli --no-restore
 
 # Runtime stage - Control Plane API
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime-api
