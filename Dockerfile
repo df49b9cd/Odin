@@ -19,6 +19,7 @@ COPY src/Odin.WorkerHost/*.csproj ./src/Odin.WorkerHost/
 COPY src/Odin.Visibility/*.csproj ./src/Odin.Visibility/
 COPY src/Odin.Cli/*.csproj ./src/Odin.Cli/
 COPY samples/OrderProcessing.Sample/*.csproj ./samples/OrderProcessing.Sample/
+COPY samples/OrderProcessing.Shared/*.csproj ./samples/OrderProcessing.Shared/
 COPY tests/Odin.Core.Tests/*.csproj ./tests/Odin.Core.Tests/
 COPY tests/Odin.ExecutionEngine.Tests/*.csproj ./tests/Odin.ExecutionEngine.Tests/
 COPY tests/Odin.Integration.Tests/*.csproj ./tests/Odin.Integration.Tests/
