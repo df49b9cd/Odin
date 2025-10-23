@@ -22,7 +22,7 @@ public class GoHelpersTests
             _ => Task.FromResult(Result.Ok(2))
         };
 
-        var result = await GoHelpers.FanOutAsync(operations, cancellationToken: TestContext.Current.CancellationToken);
+        var result = await FanOutAsync(operations, cancellationToken: TestContext.Current.CancellationToken);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ShouldBe(new[] { 1, 2 });
@@ -37,7 +37,7 @@ public class GoHelpersTests
             _ => Task.FromResult(Result.Ok(2))
         };
 
-        var result = await GoHelpers.FanOutAsync(operations, cancellationToken: TestContext.Current.CancellationToken);
+        var result = await FanOutAsync(operations, cancellationToken: TestContext.Current.CancellationToken);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.ShouldNotBeNull();
@@ -47,7 +47,7 @@ public class GoHelpersTests
     [Fact]
     public async Task FanOutAsync_WhenOperationsNull_ThrowsArgumentNullException()
     {
-        await Should.ThrowAsync<ArgumentNullException>(async () => await GoHelpers.FanOutAsync<int>(null!));
+        await Should.ThrowAsync<ArgumentNullException>(async () => await FanOutAsync<int>(null!));
     }
 
     [Fact]
@@ -60,7 +60,7 @@ public class GoHelpersTests
         };
 
         await Should.ThrowAsync<ArgumentNullException>(async () =>
-            await GoHelpers.FanOutAsync(operations, cancellationToken: TestContext.Current.CancellationToken));
+            await FanOutAsync(operations, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public class GoHelpersTests
             }
         };
 
-        var result = await GoHelpers.RaceAsync(operations, cancellationToken: TestContext.Current.CancellationToken);
+        var result = await RaceAsync(operations, cancellationToken: TestContext.Current.CancellationToken);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ShouldBe("winner");
@@ -89,7 +89,7 @@ public class GoHelpersTests
     [Fact]
     public async Task RaceAsync_WhenOperationsNull_ThrowsArgumentNullException()
     {
-        await Should.ThrowAsync<ArgumentNullException>(async () => await GoHelpers.RaceAsync<int>(null!));
+        await Should.ThrowAsync<ArgumentNullException>(async () => await RaceAsync<int>(null!));
     }
 
     [Fact]
@@ -102,7 +102,7 @@ public class GoHelpersTests
         };
 
         await Should.ThrowAsync<ArgumentNullException>(async () =>
-            await GoHelpers.RaceAsync(operations, cancellationToken: TestContext.Current.CancellationToken));
+            await RaceAsync(operations, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -114,7 +114,7 @@ public class GoHelpersTests
             _ => Task.FromResult(Result.Fail<string>(Error.From("second failure", "FAIL_2")))
         };
 
-        var result = await GoHelpers.RaceAsync(operations, cancellationToken: TestContext.Current.CancellationToken);
+        var result = await RaceAsync(operations, cancellationToken: TestContext.Current.CancellationToken);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.ShouldNotBeNull();
@@ -123,7 +123,7 @@ public class GoHelpersTests
     [Fact]
     public async Task WithTimeoutAsync_WhenOperationExceedsTimeout_ReturnsTimeoutError()
     {
-        var result = await GoHelpers.WithTimeoutAsync(
+        var result = await WithTimeoutAsync(
             async ct =>
             {
                 await Task.Delay(TimeSpan.FromMilliseconds(250), ct);
@@ -140,7 +140,7 @@ public class GoHelpersTests
     [Fact]
     public async Task WithTimeoutAsync_WhenOperationCompletesBeforeTimeout_ReturnsResult()
     {
-        var result = await GoHelpers.WithTimeoutAsync(
+        var result = await WithTimeoutAsync(
             ct => Task.FromResult(Result.Ok("immediate-success")),
             TimeSpan.FromMilliseconds(250),
             cancellationToken: TestContext.Current.CancellationToken);
@@ -154,7 +154,7 @@ public class GoHelpersTests
     {
         var attempts = new List<int>();
 
-        var result = await GoHelpers.RetryAsync(
+        var result = await RetryAsync(
             (attempt, _) =>
             {
                 attempts.Add(attempt);
@@ -181,7 +181,7 @@ public class GoHelpersTests
     {
         var attempts = new List<int>();
 
-        var result = await GoHelpers.RetryAsync(
+        var result = await RetryAsync(
             (attempt, _) =>
             {
                 attempts.Add(attempt);
@@ -201,14 +201,14 @@ public class GoHelpersTests
     [Fact]
     public async Task RetryAsync_WhenOperationNull_ThrowsArgumentNullException()
     {
-        await Should.ThrowAsync<ArgumentNullException>(async () => await GoHelpers.RetryAsync<int>(null!));
+        await Should.ThrowAsync<ArgumentNullException>(async () => await RetryAsync<int>(null!));
     }
 
     [Fact]
     public async Task RetryAsync_WhenMaxAttemptsInvalid_ThrowsArgumentOutOfRangeException()
     {
         await Should.ThrowAsync<ArgumentOutOfRangeException>(async () =>
-            await GoHelpers.RetryAsync(
+            await RetryAsync(
                 (_, _) => Task.FromResult(Result.Ok(1)),
                 maxAttempts: 0,
                 cancellationToken: TestContext.Current.CancellationToken));
@@ -217,7 +217,7 @@ public class GoHelpersTests
     [Fact]
     public async Task RetryAsync_WhenOperationThrows_ReturnsFailure()
     {
-        var result = await GoHelpers.RetryAsync(
+        var result = await RetryAsync(
             (_, _) => Task.FromException<Result<int>>(new InvalidOperationException("boom")),
             maxAttempts: 1,
             logger: NullLogger.Instance,
