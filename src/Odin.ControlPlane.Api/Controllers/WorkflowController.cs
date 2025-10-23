@@ -15,10 +15,10 @@ using GrpcTerminateWorkflowRequest = Odin.ControlPlane.Grpc.TerminateWorkflowReq
 using ProtoWorkflowExecution = Odin.ControlPlane.Grpc.WorkflowExecution;
 using ProtoWorkflowState = Odin.ControlPlane.Grpc.WorkflowState;
 using RpcStatusCode = Grpc.Core.StatusCode;
+using WorkflowExecutionInfoModel = Odin.Contracts.WorkflowExecutionInfo;
 using WorkflowExecutionModel = Odin.Contracts.WorkflowExecution;
 using WorkflowServiceClient = Odin.ControlPlane.Grpc.WorkflowService.WorkflowServiceClient;
 using WorkflowState = Odin.Contracts.WorkflowState;
-using WorkflowExecutionInfoModel = Odin.Contracts.WorkflowExecutionInfo;
 
 namespace Odin.ControlPlane.Api.Controllers;
 
