@@ -316,7 +316,7 @@ src/Odin.Persistence/
 
 ### Priority 0: Core Utility Follow-up
 
-- [ ] Evaluate whether dedicated `GoHelpers` wrappers are needed beyond direct `Hugo.Go` usage
+- [X] Evaluate whether dedicated `GoHelpers` wrappers are needed beyond direct `Hugo.Go` usage
 - [x] Add unit coverage for `HashingUtilities` and `JsonOptions`
 
 ### Priority 1: Complete Persistence Implementation
@@ -355,7 +355,7 @@ src/Odin.Persistence/
 - [x] Unit tests for SDK components
 - [x] Integration tests for workflow execution
 - [x] Determinism replay tests
-- [ ] ExecutionEngine service/unit tests (Matching dispatcher, system workers, worker host)
+- [x] ExecutionEngine service/unit tests (Matching dispatcher, system workers, worker host)
 
 ## Key Decisions and Design Patterns
 
