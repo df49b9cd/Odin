@@ -22,6 +22,7 @@ COPY samples/OrderProcessing.Sample/*.csproj ./samples/OrderProcessing.Sample/
 COPY samples/OrderProcessing.Shared/*.csproj ./samples/OrderProcessing.Shared/
 COPY tests/Odin.Core.Tests/*.csproj ./tests/Odin.Core.Tests/
 COPY tests/Odin.ExecutionEngine.Tests/*.csproj ./tests/Odin.ExecutionEngine.Tests/
+COPY tests/Odin.Persistence.Tests/*.csproj ./tests/Odin.Persistence.Tests/
 COPY tests/Odin.Integration.Tests/*.csproj ./tests/Odin.Integration.Tests/
 COPY tests/Odin.Sdk.Tests/*.csproj ./tests/Odin.Sdk.Tests/
 
