@@ -348,10 +348,10 @@ src/Odin.Persistence/
 
 ### Priority 4: APIs
 
-- [ ] Define and implement gRPC proto for WorkflowService
-- [ ] Implement gRPC service handlers
-- [ ] Create REST API facade
-- [ ] Add OpenTelemetry instrumentation
+- [x] Define and implement gRPC proto for WorkflowService
+- [x] Implement gRPC service handlers
+- [x] Create REST API facade
+- [x] Add OpenTelemetry instrumentation
 
 ### Priority 5: Testing
 

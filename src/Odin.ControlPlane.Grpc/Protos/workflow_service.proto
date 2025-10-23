@@ -1,0 +1,97 @@
+syntax = "proto3";
+
+package odin.controlplane.v1;
+
+option csharp_namespace = "Odin.ControlPlane.Grpc";
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+service WorkflowService {
+  rpc StartWorkflow(StartWorkflowRequest) returns (StartWorkflowResponse);
+  rpc GetWorkflow(GetWorkflowRequest) returns (GetWorkflowResponse);
+  rpc SignalWorkflow(SignalWorkflowRequest) returns (SignalWorkflowResponse);
+  rpc TerminateWorkflow(TerminateWorkflowRequest) returns (TerminateWorkflowResponse);
+  rpc QueryWorkflow(QueryWorkflowRequest) returns (QueryWorkflowResponse);
+}
+
+message StartWorkflowRequest {
+  string namespace_id = 1;
+  string workflow_id = 2;
+  string workflow_type = 3;
+  string task_queue = 4;
+  string input = 5;
+}
+
+message StartWorkflowResponse {
+  string workflow_id = 1;
+  string run_id = 2;
+}
+
+message GetWorkflowRequest {
+  string namespace_id = 1;
+  string workflow_id = 2;
+  string run_id = 3;
+}
+
+message GetWorkflowResponse {
+  WorkflowExecution execution = 1;
+}
+
+message SignalWorkflowRequest {
+  string namespace_id = 1;
+  string workflow_id = 2;
+  string run_id = 3;
+  string signal_name = 4;
+  string input = 5;
+}
+
+message SignalWorkflowResponse {
+}
+
+message TerminateWorkflowRequest {
+  string namespace_id = 1;
+  string workflow_id = 2;
+  string run_id = 3;
+  string reason = 4;
+}
+
+message TerminateWorkflowResponse {
+}
+
+message QueryWorkflowRequest {
+  string namespace_id = 1;
+  string workflow_id = 2;
+  string run_id = 3;
+  string query_type = 4;
+  string input = 5;
+}
+
+message QueryWorkflowResponse {
+  google.protobuf.Struct result = 1;
+}
+
+message WorkflowExecution {
+  string namespace_id = 1;
+  string workflow_id = 2;
+  string run_id = 3;
+  string workflow_type = 4;
+  string task_queue = 5;
+  WorkflowState state = 6;
+  google.protobuf.Timestamp started_at = 7;
+  google.protobuf.Timestamp completed_at = 8;
+  google.protobuf.Timestamp last_updated_at = 9;
+  int32 shard_id = 10;
+  int64 version = 11;
+}
+
+enum WorkflowState {
+  WORKFLOW_STATE_UNSPECIFIED = 0;
+  WORKFLOW_STATE_RUNNING = 1;
+  WORKFLOW_STATE_COMPLETED = 2;
+  WORKFLOW_STATE_FAILED = 3;
+  WORKFLOW_STATE_CANCELED = 4;
+  WORKFLOW_STATE_TERMINATED = 5;
+  WORKFLOW_STATE_CONTINUED_AS_NEW = 6;
+  WORKFLOW_STATE_TIMED_OUT = 7;
+}

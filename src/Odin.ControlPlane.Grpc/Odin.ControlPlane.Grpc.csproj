@@ -7,12 +7,29 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Protobuf Include="Protos\greet.proto" GrpcServices="Server" />
+    <PackageReference Include="Grpc.AspNetCore" />
+    <PackageReference Include="Grpc.AspNetCore.Server.Reflection" />
+    <PackageReference Include="Google.Protobuf" />
+    <PackageReference Include="Grpc.Tools">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <PackageReference Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Grpc.AspNetCore" />
-    <PackageReference Include="Grpc.AspNetCore.Server.Reflection" />
+    <Protobuf Include="Protos\workflow_service.proto" GrpcServices="Server" ProtoRoot="Protos" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Odin.Contracts\Odin.Contracts.csproj" />
+    <ProjectReference Include="..\Odin.Persistence\Odin.Persistence.csproj" />
+    <ProjectReference Include="..\Odin.ExecutionEngine.History\Odin.ExecutionEngine.History.csproj" />
+    <ProjectReference Include="..\Odin.ExecutionEngine.Matching\Odin.ExecutionEngine.Matching.csproj" />
   </ItemGroup>
 
 </Project>

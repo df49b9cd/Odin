@@ -1,31 +1,36 @@
-using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
-using Hugo;
+using Google.Protobuf.WellKnownTypes;
+using Grpc.Core;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Odin.Core;
-using Odin.ExecutionEngine.History;
-using Odin.Persistence.Interfaces;
-using static Hugo.Functional;
-using static Hugo.Go;
 using WorkflowExecutionModel = Odin.Contracts.WorkflowExecution;
+using WorkflowServiceClient = Odin.ControlPlane.Grpc.WorkflowService.WorkflowServiceClient;
+using GrpcGetWorkflowRequest = Odin.ControlPlane.Grpc.GetWorkflowRequest;
+using GrpcQueryWorkflowRequest = Odin.ControlPlane.Grpc.QueryWorkflowRequest;
+using GrpcQueryWorkflowResponse = Odin.ControlPlane.Grpc.QueryWorkflowResponse;
+using GrpcSignalWorkflowRequest = Odin.ControlPlane.Grpc.SignalWorkflowRequest;
+using GrpcStartWorkflowRequest = Odin.ControlPlane.Grpc.StartWorkflowRequest;
+using GrpcStartWorkflowResponse = Odin.ControlPlane.Grpc.StartWorkflowResponse;
+using GrpcTerminateWorkflowRequest = Odin.ControlPlane.Grpc.TerminateWorkflowRequest;
+using ProtoWorkflowExecution = Odin.ControlPlane.Grpc.WorkflowExecution;
+using ProtoWorkflowState = Odin.ControlPlane.Grpc.WorkflowState;
+using RpcStatusCode = Grpc.Core.StatusCode;
 
 namespace Odin.ControlPlane.Api.Controllers;
 
 /// <summary>
-/// Workflow lifecycle management endpoints.
+/// Workflow lifecycle management endpoints implemented as a facade over the gRPC control plane.
 /// </summary>
 [ApiController]
 [Route("api/v1/workflows")]
 [Produces("application/json")]
 public sealed class WorkflowController(
-    IWorkflowExecutionRepository workflowRepository,
-    IHistoryService historyService,
-    ITaskQueueRepository taskQueueRepository,
+    WorkflowServiceClient workflowClient,
     ILogger<WorkflowController> logger) : ControllerBase
 {
-    private readonly IWorkflowExecutionRepository _workflowRepository = workflowRepository;
-    private readonly IHistoryService _historyService = historyService;
-    private readonly ITaskQueueRepository _taskQueueRepository = taskQueueRepository;
+    private readonly WorkflowServiceClient _workflowClient = workflowClient;
     private readonly ILogger<WorkflowController> _logger = logger;
 
     /// <summary>
@@ -38,111 +43,40 @@ public sealed class WorkflowController(
         [FromBody] StartWorkflowRequest request,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.WorkflowType))
+        var grpcRequest = new GrpcStartWorkflowRequest
         {
-            return BadRequest(new ErrorResponse
-            {
-                Message = "Workflow type is required",
-                Code = "INVALID_REQUEST"
-            });
-        }
-
-        // Generate IDs
-        var workflowId = request.WorkflowId ?? Guid.NewGuid().ToString();
-        var runId = Guid.NewGuid();
-
-        // Create workflow execution record
-        var execution = new WorkflowExecutionModel
-        {
-            NamespaceId = Guid.Parse(request.NamespaceId),
-            WorkflowId = workflowId,
-            RunId = runId,
+            NamespaceId = request.NamespaceId,
+            WorkflowId = request.WorkflowId ?? string.Empty,
             WorkflowType = request.WorkflowType,
             TaskQueue = request.TaskQueue,
-            WorkflowState = Odin.Contracts.WorkflowState.Running,
-            StartedAt = DateTimeOffset.UtcNow,
-            LastUpdatedAt = DateTimeOffset.UtcNow,
-            ShardId = 0 // Will be calculated by repository
+            Input = request.Input ?? string.Empty
         };
 
-        var createResult = await _workflowRepository.CreateAsync(execution, cancellationToken);
-        if (createResult.IsFailure)
+        try
         {
-            _logger.LogError("Failed to create workflow {WorkflowId}: {Error}",
-                workflowId, createResult.Error?.Message);
+            var response = await _workflowClient
+                .StartWorkflowAsync(grpcRequest, cancellationToken: cancellationToken)
+                .ResponseAsync
+                .ConfigureAwait(false);
 
-            return BadRequest(new ErrorResponse
-            {
-                Message = createResult.Error?.Message ?? "Failed to start workflow",
-                Code = createResult.Error?.Code ?? "CREATE_FAILED"
-            });
+            return CreatedAtAction(
+                nameof(GetWorkflow),
+                new { id = response.WorkflowId },
+                new StartWorkflowResponse
+                {
+                    WorkflowId = response.WorkflowId,
+                    RunId = response.RunId
+                });
         }
-
-        // Append WorkflowExecutionStarted event
-        // TODO: Phase 2 - Implement proper history event appending
-        /*
-        var startedEvent = new Odin.Contracts.HistoryEvent
+        catch (RpcException ex)
         {
-            EventId = 1,
-            EventType = "WorkflowExecutionStarted",
-            EventTimestamp = DateTimeOffset.UtcNow,
-            EventData = JsonDocument.Parse(JsonSerializer.Serialize(new
-            {
-                WorkflowType = request.WorkflowType,
-                TaskQueue = request.TaskQueue,
-                Input = request.Input ?? ""
-            }))
-        };
-
-        var appendRequest = new AppendHistoryEventsRequest
-        {
-            NamespaceId = request.NamespaceId,
-            WorkflowId = workflowId,
-            RunId = runId.ToString(),
-            Events = new[] { startedEvent }
-        };
-
-        var appendResult = await _historyService.AppendEventsAsync(appendRequest, cancellationToken);
-        if (appendResult.IsFailure)
-        {
-            _logger.LogWarning("Failed to append start event for workflow {WorkflowId}: {Error}",
-                workflowId, appendResult.Error?.Message);
+            _logger.LogWarning(ex, "Failed to start workflow {WorkflowType}", request.WorkflowType);
+            return HandleRpcException(
+                ex,
+                "Failed to start workflow",
+                "CREATE_FAILED",
+                invalidArgumentCode: "INVALID_REQUEST");
         }
-        */
-
-        // Enqueue workflow task
-        // TODO: Phase 2 - Implement proper task queuing
-        /*
-        var workflowTask = new Odin.Contracts.WorkflowTask
-        {
-            TaskId = Guid.NewGuid().ToString(),
-            NamespaceId = request.NamespaceId,
-            WorkflowId = workflowId,
-            RunId = runId,
-            TaskQueue = request.TaskQueue,
-            ScheduledEventId = 1,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        var enqueueResult = await _taskQueueRepository.EnqueueAsync(workflowTask, cancellationToken);
-        if (enqueueResult.IsFailure)
-        {
-            _logger.LogWarning("Failed to enqueue task for workflow {WorkflowId}: {Error}",
-                workflowId, enqueueResult.Error?.Message);
-        }
-        */
-
-        _logger.LogInformation("Started workflow {WorkflowType} with ID {WorkflowId}/{RunId}",
-            request.WorkflowType, workflowId, runId);
-
-        return CreatedAtAction(
-            nameof(GetWorkflow),
-            new { id = workflowId },
-            new StartWorkflowResponse
-            {
-                WorkflowId = workflowId,
-                RunId = runId.ToString()
-            });
     }
 
     /// <summary>
@@ -157,19 +91,32 @@ public sealed class WorkflowController(
         [FromQuery] string? runId = null,
         CancellationToken cancellationToken = default)
     {
-        namespaceId ??= "default";
+        var grpcRequest = new GrpcGetWorkflowRequest
+        {
+            NamespaceId = namespaceId ?? "default",
+            WorkflowId = id,
+            RunId = runId ?? string.Empty
+        };
 
-        var result = string.IsNullOrEmpty(runId)
-            ? await _workflowRepository.GetCurrentAsync(namespaceId, id, cancellationToken)
-            : await _workflowRepository.GetAsync(namespaceId, id, runId, cancellationToken);
+        try
+        {
+            var response = await _workflowClient
+                .GetWorkflowAsync(grpcRequest, cancellationToken: cancellationToken)
+                .ResponseAsync
+                .ConfigureAwait(false);
 
-        return Functional.Finally(result,
-            workflow => (IActionResult)Ok(workflow),
-            error => NotFound(new ErrorResponse
-            {
-                Message = error.Message ?? $"Workflow '{id}' not found",
-                Code = error.Code ?? OdinErrorCodes.WorkflowNotFound
-            }));
+            return Ok(MapToDomain(response.Execution));
+        }
+        catch (RpcException ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch workflow {WorkflowId}", id);
+            return HandleRpcException(
+                ex,
+                "Failed to fetch workflow",
+                "WORKFLOW_FETCH_FAILED",
+                invalidArgumentCode: "INVALID_REQUEST",
+                notFoundCode: OdinErrorCodes.WorkflowNotFound);
+        }
     }
 
     /// <summary>
@@ -184,80 +131,37 @@ public sealed class WorkflowController(
         [FromBody] SignalWorkflowRequest request,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.SignalName))
+        var grpcRequest = new GrpcSignalWorkflowRequest
         {
-            return BadRequest(new ErrorResponse
-            {
-                Message = "Signal name is required",
-                Code = "INVALID_REQUEST"
-            });
-        }
-
-        var namespaceId = request.NamespaceId ?? "default";
-
-        var fetchedWorkflow = await _workflowRepository.GetCurrentAsync(namespaceId, id, cancellationToken);
-        var workflowResult = fetchedWorkflow.Ensure(
-            workflow => workflow.WorkflowState == Odin.Contracts.WorkflowState.Running,
-            workflow =>
-            {
-                var metadata = new Dictionary<string, object?>
-                {
-                    ["workflowId"] = id,
-                    ["namespaceId"] = namespaceId,
-                    ["currentState"] = workflow.WorkflowState.ToString()
-                };
-
-                return Error.From(
-                        $"Workflow is not running (current status: {workflow.WorkflowState})",
-                        "INVALID_WORKFLOW_STATE")
-                    .WithMetadata(metadata);
-            });
-
-        // Append WorkflowExecutionSignaled event
-        // TODO: Phase 2 - Implement signal event append
-        /*
-        var signalEvent = new Odin.Contracts.HistoryEvent
-        {
-            EventId = 0, // Will be assigned by repository
-            EventType = "WorkflowExecutionSignaled",
-            Timestamp = DateTime.UtcNow,
-            Attributes = new Dictionary<string, object>
-            {
-                ["SignalName"] = request.SignalName,
-                ["Input"] = request.Input ?? ""
-            }
+            NamespaceId = request.NamespaceId ?? "default",
+            WorkflowId = id,
+            SignalName = request.SignalName,
+            Input = request.Input ?? string.Empty
         };
 
-        // Note: In production, need to get next event ID from history
-        // For now, using placeholder approach
-        */
-        _logger.LogInformation("Signaled workflow {WorkflowId} with signal {SignalName}",
-            id, request.SignalName);
+        try
+        {
+            await _workflowClient
+                .SignalWorkflowAsync(grpcRequest, cancellationToken: cancellationToken)
+                .ResponseAsync
+                .ConfigureAwait(false);
 
-        return Functional.Finally(workflowResult,
-            _ =>
-            {
-                _logger.LogInformation("Signal {SignalName} accepted for workflow {WorkflowId}", request.SignalName, id);
-                return (IActionResult)Accepted();
-            },
-            error => (error.Code ?? string.Empty) switch
-            {
-                OdinErrorCodes.WorkflowNotFound => NotFound(new ErrorResponse
-                {
-                    Message = error.Message ?? $"Workflow '{id}' not found",
-                    Code = OdinErrorCodes.WorkflowNotFound
-                }),
-                "INVALID_WORKFLOW_STATE" => BadRequest(new ErrorResponse
-                {
-                    Message = error.Message ?? "Workflow is not in a running state",
-                    Code = "INVALID_WORKFLOW_STATE"
-                }),
-                _ => BadRequest(new ErrorResponse
-                {
-                    Message = error.Message ?? "Signal request failed",
-                    Code = error.Code ?? "SIGNAL_FAILED"
-                })
-            });
+            _logger.LogInformation("Signal {Signal} accepted for workflow {WorkflowId}",
+                request.SignalName, id);
+
+            return Accepted();
+        }
+        catch (RpcException ex)
+        {
+            _logger.LogWarning(ex, "Failed to signal workflow {WorkflowId}", id);
+            return HandleRpcException(
+                ex,
+                "Failed to signal workflow",
+                "SIGNAL_FAILED",
+                invalidArgumentCode: "INVALID_REQUEST",
+                notFoundCode: OdinErrorCodes.WorkflowNotFound,
+                failedPreconditionCode: "INVALID_WORKFLOW_STATE");
+        }
     }
 
     /// <summary>
@@ -272,68 +176,34 @@ public sealed class WorkflowController(
         [FromBody] TerminateWorkflowRequest request,
         CancellationToken cancellationToken)
     {
-        var namespaceId = request.NamespaceId ?? "default";
-
-        // Get current workflow execution
-        var getResult = await _workflowRepository.GetCurrentAsync(namespaceId, id, cancellationToken);
-        if (getResult.IsFailure)
+        var grpcRequest = new GrpcTerminateWorkflowRequest
         {
-            return NotFound(new ErrorResponse
-            {
-                Message = $"Workflow '{id}' not found",
-                Code = "WORKFLOW_NOT_FOUND"
-            });
-        }
-
-        var workflow = getResult.Value;
-        if (workflow.WorkflowState != Odin.Contracts.WorkflowState.Running)
-        {
-            return BadRequest(new ErrorResponse
-            {
-                Message = $"Workflow is not running (current status: {workflow.WorkflowState})",
-                Code = "INVALID_WORKFLOW_STATE"
-            });
-        }
-
-        // Terminate workflow
-        var updateResult = await _workflowRepository.TerminateAsync(
-            namespaceId,
-            id,
-            workflow.RunId.ToString(),
-            request.Reason ?? "Terminated by user",
-            cancellationToken);
-
-        if (updateResult.IsFailure)
-        {
-            _logger.LogError("Failed to terminate workflow {WorkflowId}: {Error}",
-                id, updateResult.Error?.Message);
-
-            return BadRequest(new ErrorResponse
-            {
-                Message = updateResult.Error?.Message ?? "Failed to terminate workflow",
-                Code = updateResult.Error?.Code ?? "TERMINATE_FAILED"
-            });
-        }
-
-        // Append WorkflowExecutionTerminated event
-        // TODO: Phase 2 - Implement termination event
-        /*
-        var terminatedEvent = new Odin.Contracts.HistoryEvent
-        {
-            EventId = 0, // Placeholder
-            EventType = "WorkflowExecutionTerminated",
-            Timestamp = DateTime.UtcNow,
-            Attributes = new Dictionary<string, object>
-            {
-                ["Reason"] = request.Reason ?? "Terminated by user"
-            }
+            NamespaceId = request.NamespaceId ?? "default",
+            WorkflowId = id,
+            Reason = request.Reason ?? "Terminated via REST facade"
         };
-        */
 
-        _logger.LogInformation("Terminated workflow {WorkflowId}/{RunId}: {Reason}",
-            id, workflow.RunId.ToString(), request.Reason);
+        try
+        {
+            await _workflowClient
+                .TerminateWorkflowAsync(grpcRequest, cancellationToken: cancellationToken)
+                .ResponseAsync
+                .ConfigureAwait(false);
 
-        return Accepted();
+            _logger.LogInformation("Terminated workflow {WorkflowId}", id);
+            return Accepted();
+        }
+        catch (RpcException ex)
+        {
+            _logger.LogWarning(ex, "Failed to terminate workflow {WorkflowId}", id);
+            return HandleRpcException(
+                ex,
+                "Failed to terminate workflow",
+                "TERMINATE_FAILED",
+                invalidArgumentCode: "INVALID_REQUEST",
+                notFoundCode: OdinErrorCodes.WorkflowNotFound,
+                failedPreconditionCode: "INVALID_WORKFLOW_STATE");
+        }
     }
 
     /// <summary>
@@ -347,34 +217,155 @@ public sealed class WorkflowController(
         [FromBody] QueryWorkflowRequest request,
         CancellationToken cancellationToken)
     {
-        var namespaceId = request.NamespaceId ?? "default";
-
-        // Get current workflow execution
-        var getResult = await _workflowRepository.GetCurrentAsync(namespaceId, id, cancellationToken);
-        if (getResult.IsFailure)
+        var grpcRequest = new GrpcQueryWorkflowRequest
         {
-            return NotFound(new ErrorResponse
+            NamespaceId = request.NamespaceId ?? "default",
+            WorkflowId = id,
+            QueryType = request.QueryType,
+            Input = request.Args is null ? string.Empty : JsonSerializer.Serialize(request.Args)
+        };
+
+        try
+        {
+            GrpcQueryWorkflowResponse response = await _workflowClient
+                .QueryWorkflowAsync(grpcRequest, cancellationToken: cancellationToken)
+                .ResponseAsync
+                .ConfigureAwait(false);
+
+            _logger.LogInformation("Query {Query} executed for workflow {WorkflowId}",
+                request.QueryType, id);
+
+            return Ok(new QueryWorkflowResponse
             {
-                Message = $"Workflow '{id}' not found",
-                Code = "WORKFLOW_NOT_FOUND"
+                Result = ConvertStruct(response.Result)
             });
         }
-
-        _logger.LogInformation("Query {QueryType} on workflow {WorkflowId}",
-            request.QueryType, id);
-
-        // In production, this would execute query handler against workflow state
-        // For Phase 1, return basic workflow info
-        return Ok(new QueryWorkflowResponse
+        catch (RpcException ex)
         {
-            Result = new Dictionary<string, object>
-            {
-                ["status"] = getResult.Value.WorkflowState.ToString(),
-                ["workflowType"] = getResult.Value.WorkflowType,
-                ["startTime"] = getResult.Value.StartedAt
-            }
-        });
+            _logger.LogWarning(ex, "Failed to query workflow {WorkflowId}", id);
+            return HandleRpcException(
+                ex,
+                "Failed to query workflow",
+                "QUERY_FAILED",
+                invalidArgumentCode: "INVALID_REQUEST",
+                notFoundCode: OdinErrorCodes.WorkflowNotFound);
+        }
     }
+
+    private IActionResult HandleRpcException(
+        RpcException exception,
+        string defaultMessage,
+        string defaultCode,
+        string? invalidArgumentCode = null,
+        string? notFoundCode = null,
+        string? failedPreconditionCode = null)
+    {
+        var message = string.IsNullOrWhiteSpace(exception.Status.Detail)
+            ? defaultMessage
+            : exception.Status.Detail;
+
+        switch (exception.StatusCode)
+        {
+            case RpcStatusCode.InvalidArgument:
+                return BadRequest(new ErrorResponse
+                {
+                    Message = message,
+                    Code = invalidArgumentCode ?? defaultCode
+                });
+            case RpcStatusCode.NotFound:
+                return NotFound(new ErrorResponse
+                {
+                    Message = message,
+                    Code = notFoundCode ?? defaultCode
+                });
+            case RpcStatusCode.FailedPrecondition:
+                return BadRequest(new ErrorResponse
+                {
+                    Message = message,
+                    Code = failedPreconditionCode ?? defaultCode
+                });
+            case RpcStatusCode.DeadlineExceeded:
+                return CreateErrorResult(StatusCodes.Status504GatewayTimeout, message, defaultCode);
+            default:
+                return CreateErrorResult(StatusCodes.Status500InternalServerError, message, defaultCode);
+        }
+    }
+
+    private static IActionResult CreateErrorResult(int statusCode, string message, string code) =>
+        new ObjectResult(new ErrorResponse
+        {
+            Message = message,
+            Code = code
+        })
+        {
+            StatusCode = statusCode
+        };
+
+    private static WorkflowExecutionModel MapToDomain(ProtoWorkflowExecution execution)
+    {
+        var namespaceId = Guid.TryParse(execution.NamespaceId, out var parsedNamespaceId)
+            ? parsedNamespaceId
+            : Guid.Empty;
+        var runId = Guid.TryParse(execution.RunId, out var parsedRunId)
+            ? parsedRunId
+            : Guid.Empty;
+
+        return new WorkflowExecutionModel
+        {
+            NamespaceId = namespaceId,
+            WorkflowId = execution.WorkflowId,
+            RunId = runId,
+            WorkflowType = execution.WorkflowType,
+            TaskQueue = execution.TaskQueue,
+            WorkflowState = MapState(execution.State),
+            StartedAt = execution.StartedAt?.ToDateTimeOffset() ?? DateTimeOffset.MinValue,
+            CompletedAt = execution.CompletedAt?.ToDateTimeOffset(),
+            LastUpdatedAt = execution.LastUpdatedAt?.ToDateTimeOffset() ?? DateTimeOffset.MinValue,
+            ShardId = execution.ShardId,
+            Version = execution.Version
+        };
+    }
+
+    private static Odin.Contracts.WorkflowState MapState(ProtoWorkflowState state) =>
+        state switch
+        {
+            ProtoWorkflowState.Running => Odin.Contracts.WorkflowState.Running,
+            ProtoWorkflowState.Completed => Odin.Contracts.WorkflowState.Completed,
+            ProtoWorkflowState.Failed => Odin.Contracts.WorkflowState.Failed,
+            ProtoWorkflowState.Canceled => Odin.Contracts.WorkflowState.Canceled,
+            ProtoWorkflowState.Terminated => Odin.Contracts.WorkflowState.Terminated,
+            ProtoWorkflowState.ContinuedAsNew => Odin.Contracts.WorkflowState.ContinuedAsNew,
+            ProtoWorkflowState.TimedOut => Odin.Contracts.WorkflowState.TimedOut,
+            _ => Odin.Contracts.WorkflowState.Running
+        };
+
+    private static Dictionary<string, object?> ConvertStruct(Struct? payload)
+    {
+        if (payload is null)
+        {
+            return new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var result = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (key, value) in payload.Fields)
+        {
+            result[key] = ConvertValue(value);
+        }
+
+        return result;
+    }
+
+    private static object? ConvertValue(Value value) =>
+        value.KindCase switch
+        {
+            Value.KindOneofCase.StringValue => value.StringValue,
+            Value.KindOneofCase.NumberValue => value.NumberValue,
+            Value.KindOneofCase.BoolValue => value.BoolValue,
+            Value.KindOneofCase.StructValue => ConvertStruct(value.StructValue),
+            Value.KindOneofCase.ListValue => value.ListValue.Values.Select(ConvertValue).ToList(),
+            _ => null
+        };
 }
 
 /// <summary>
@@ -432,5 +423,5 @@ public sealed record QueryWorkflowRequest
 /// </summary>
 public sealed record QueryWorkflowResponse
 {
-    public required Dictionary<string, object> Result { get; init; }
+    public required Dictionary<string, object?> Result { get; init; }
 }
