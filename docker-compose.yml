@@ -3,6 +3,7 @@ version: '3.8'
 services:
   # PostgreSQL for persistence
   postgres:
+    profiles: ["core"]
     image: postgres:14
     container_name: odin-postgres
     environment:
@@ -21,6 +22,7 @@ services:
 
   # Elasticsearch for visibility (optional)
   elasticsearch:
+    profiles: ["observability"]
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
     container_name: odin-elasticsearch
     environment:
@@ -39,6 +41,7 @@ services:
 
   # OpenTelemetry Collector
   otel-collector:
+    profiles: ["observability"]
     image: otel/opentelemetry-collector-contrib:0.91.0
     container_name: odin-otel-collector
     command: ["--config=/etc/otel-collector-config.yaml"]
@@ -54,6 +57,7 @@ services:
 
   # Jaeger for distributed tracing
   jaeger:
+    profiles: ["observability"]
     image: jaegertracing/all-in-one:1.51
     container_name: odin-jaeger
     ports:
@@ -64,6 +68,7 @@ services:
 
   # Prometheus for metrics
   prometheus:
+    profiles: ["observability"]
     image: prom/prometheus:v2.48.0
     container_name: odin-prometheus
     command:
@@ -79,6 +84,7 @@ services:
 
   # Grafana for visualization
   grafana:
+    profiles: ["observability"]
     image: grafana/grafana:10.2.2
     container_name: odin-grafana
     ports:
@@ -95,6 +101,7 @@ services:
 
   # Odin Control Plane gRPC Service
   odin-grpc:
+    profiles: ["core"]
     build:
       context: .
       dockerfile: Dockerfile
@@ -104,19 +111,24 @@ services:
       - "7233:7233"
     environment:
       - HUGO_ORCHESTRATOR_DB_CONNECTION=Host=postgres;Database=orchestrator;Username=odin;Password=odin_dev_password
-      - HUGO_ORCHESTRATOR_ELASTICSEARCH_URL=http://elasticsearch:9200
-      - HUGO_ORCHESTRATOR_OTLP_ENDPOINT=http://otel-collector:4317
+      - HUGO_ORCHESTRATOR_ELASTICSEARCH_URL=${ELASTICSEARCH_URL:-http://elasticsearch:9200}
+      - HUGO_ORCHESTRATOR_OTLP_ENDPOINT=${OTLP_ENDPOINT:-http://otel-collector:4317}
       - HUGO_ORCHESTRATOR_SHARD_COUNT=512
       - HUGO_ORCHESTRATOR_HISTORY_RETENTION_DAYS=30
     depends_on:
       postgres:
         condition: service_healthy
-      otel-collector:
-        condition: service_started
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7233/"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   # Odin Control Plane REST API
   odin-api:
+    profiles: ["core"]
     build:
       context: .
       dockerfile: Dockerfile
@@ -127,20 +139,25 @@ services:
       - "8081:8081"
     environment:
       - HUGO_ORCHESTRATOR_DB_CONNECTION=Host=postgres;Database=orchestrator;Username=odin;Password=odin_dev_password
-      - HUGO_ORCHESTRATOR_ELASTICSEARCH_URL=http://elasticsearch:9200
-      - HUGO_ORCHESTRATOR_OTLP_ENDPOINT=http://otel-collector:4317
-      - HUGO_ORCHESTRATOR_GRPC_ENDPOINT=http://odin-grpc:7233
+      - HUGO_ORCHESTRATOR_ELASTICSEARCH_URL=${ELASTICSEARCH_URL:-http://elasticsearch:9200}
+      - HUGO_ORCHESTRATOR_OTLP_ENDPOINT=${OTLP_ENDPOINT:-http://otel-collector:4317}
+      - HUGO_ORCHESTRATOR_GRPC_ENDPOINT=${GRPC_ENDPOINT:-http://odin-grpc:7233}
     depends_on:
       postgres:
         condition: service_healthy
       odin-grpc:
         condition: service_started
-      otel-collector:
-        condition: service_started
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   # Odin System Workers
   odin-workers:
+    profiles: ["core"]
     build:
       context: .
       dockerfile: Dockerfile
@@ -148,14 +165,12 @@ services:
     container_name: odin-workers
     environment:
       - HUGO_ORCHESTRATOR_DB_CONNECTION=Host=postgres;Database=orchestrator;Username=odin;Password=odin_dev_password
-      - HUGO_ORCHESTRATOR_OTLP_ENDPOINT=http://otel-collector:4317
-      - HUGO_ORCHESTRATOR_GRPC_ENDPOINT=http://odin-grpc:7233
+      - HUGO_ORCHESTRATOR_OTLP_ENDPOINT=${OTLP_ENDPOINT:-http://otel-collector:4317}
+      - HUGO_ORCHESTRATOR_GRPC_ENDPOINT=${GRPC_ENDPOINT:-http://odin-grpc:7233}
     depends_on:
       postgres:
         condition: service_healthy
       odin-grpc:
-        condition: service_started
-      otel-collector:
         condition: service_started
     restart: unless-stopped
 

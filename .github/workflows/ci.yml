@@ -42,19 +42,22 @@ jobs:
     
     - name: Test (unit)
       run: |
-        dotnet test --no-build --configuration Release --verbosity normal --collect:"XPlat Code Coverage" tests/Odin.Core.Tests/Odin.Core.Tests.csproj
-        dotnet test --no-build --configuration Release --verbosity normal tests/Odin.ExecutionEngine.Tests/Odin.ExecutionEngine.Tests.csproj
-        dotnet test --no-build --configuration Release --verbosity normal tests/Odin.Sdk.Tests/Odin.Sdk.Tests.csproj
+        mkdir -p TestResults
+        dotnet test --no-build --configuration Release --verbosity normal --results-directory TestResults --collect:"XPlat Code Coverage" tests/Odin.Core.Tests/Odin.Core.Tests.csproj
+        dotnet test --no-build --configuration Release --verbosity normal --results-directory TestResults --collect:"XPlat Code Coverage" tests/Odin.ExecutionEngine.Tests/Odin.ExecutionEngine.Tests.csproj
+        dotnet test --no-build --configuration Release --verbosity normal --results-directory TestResults --collect:"XPlat Code Coverage" tests/Odin.Persistence.Tests/Odin.Persistence.Tests.csproj
+        dotnet test --no-build --configuration Release --verbosity normal --results-directory TestResults --collect:"XPlat Code Coverage" tests/Odin.Sdk.Tests/Odin.Sdk.Tests.csproj
+        dotnet test --no-build --configuration Release --verbosity normal --results-directory TestResults --collect:"XPlat Code Coverage" tests/Odin.ControlPlane.Grpc.Tests/Odin.ControlPlane.Grpc.Tests.csproj
 
     - name: Test (integration)
-      run: dotnet test --no-build --configuration Release --verbosity normal tests/Odin.Integration.Tests/Odin.Integration.Tests.csproj
+      run: dotnet test --no-build --configuration Release --verbosity normal --results-directory TestResults --collect:"XPlat Code Coverage" tests/Odin.Integration.Tests/Odin.Integration.Tests.csproj
       env:
         DOCKER_HOST: unix:///var/run/docker.sock
     
     - name: Upload coverage reports
       uses: codecov/codecov-action@v3
       with:
-        files: '**/coverage.cobertura.xml'
+        files: 'TestResults/**/coverage.cobertura.xml'
         fail_ci_if_error: false
 
   lint:

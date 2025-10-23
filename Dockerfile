@@ -59,6 +59,8 @@ RUN dotnet publish src/Odin.Cli/Odin.Cli.csproj -c Release -o /app/publish/cli -
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime-api
 WORKDIR /app
 COPY --from=publish-api /app/publish/api .
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD curl -f http://localhost:8080/ || exit 1
 EXPOSE 8080
 EXPOSE 8081
 ENTRYPOINT ["dotnet", "Odin.ControlPlane.Api.dll"]
@@ -67,6 +69,8 @@ ENTRYPOINT ["dotnet", "Odin.ControlPlane.Api.dll"]
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime-grpc
 WORKDIR /app
 COPY --from=publish-grpc /app/publish/grpc .
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD curl -f http://localhost:7233/ || exit 1
 EXPOSE 7233
 ENTRYPOINT ["dotnet", "Odin.ControlPlane.Grpc.dll"]
 
@@ -83,7 +87,7 @@ COPY --from=publish-workerhost /app/publish/workerhost .
 ENTRYPOINT ["dotnet", "Odin.WorkerHost.dll"]
 
 # Runtime stage - CLI
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime-cli
+FROM mcr.microsoft.com/dotnet/runtime:10.0 AS runtime-cli
 WORKDIR /app
 COPY --from=publish-cli /app/publish/cli .
 ENTRYPOINT ["dotnet", "Odin.Cli.dll"]
