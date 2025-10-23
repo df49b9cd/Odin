@@ -177,7 +177,7 @@ services:
   # Odin Control Plane UI (optional dev server)
   odin-ui:
     profiles: ["ui"]
-    image: node:20
+    image: node:22
     working_dir: /workspace
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
     ports:

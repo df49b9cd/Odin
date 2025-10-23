@@ -37,7 +37,7 @@ COPY . .
 RUN dotnet build -c Release --no-restore
 
 # UI build stage
-FROM node:20-alpine AS ui-build
+FROM node:22-alpine AS ui-build
 WORKDIR /workspace
 
 # Install dependencies

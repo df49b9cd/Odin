@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -10,22 +13,22 @@
     "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings=0"
   },
   "dependencies": {
-    "@tanstack/react-query": "5.55.0",
+    "@tanstack/react-query": "5.90.5",
     "classnames": "2.5.1",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "react-router-dom": "6.27.0"
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-router-dom": "7.9.4"
   },
   "devDependencies": {
-    "@types/react": "18.3.3",
-    "@types/react-dom": "18.3.1",
-    "@typescript-eslint/eslint-plugin": "8.11.0",
-    "@typescript-eslint/parser": "8.11.0",
-    "@vitejs/plugin-react": "4.3.2",
-    "eslint": "9.13.0",
-    "eslint-plugin-react-hooks": "5.1.0-rc.0",
-    "eslint-plugin-react-refresh": "0.4.14",
-    "typescript": "5.6.3",
-    "vite": "5.4.10"
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "@typescript-eslint/eslint-plugin": "8.46.2",
+    "@typescript-eslint/parser": "8.46.2",
+    "@vitejs/plugin-react": "^5.0.4",
+    "eslint": "^9.38.0",
+    "eslint-plugin-react-hooks": "7.0.0",
+    "eslint-plugin-react-refresh": "0.4.24",
+    "typescript": "5.9.3",
+    "vite": "^7.1.12"
   }
 }

@@ -5,7 +5,7 @@ This guide will help you get started with the Hugo Durable Orchestrator.
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
-- [Node.js 20 LTS](https://nodejs.org/en/download) (for the control plane UI)
+- [Node.js 22.12 LTS](https://nodejs.org/en/download) (for the control plane UI)
 - [Docker](https://www.docker.com/get-started) and Docker Compose (for local development)
 - PostgreSQL 14+ or MySQL 8.0.19+ (or use Docker Compose)
 
