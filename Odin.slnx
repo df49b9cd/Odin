@@ -6,6 +6,7 @@
   </Configurations>
   <Folder Name="/samples/">
     <Project Path="samples/OrderProcessing.Sample/OrderProcessing.Sample.csproj" />
+    <Project Path="samples/OrderProcessing.Shared/OrderProcessing.Shared.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Odin.Cli/Odin.Cli.csproj" />
@@ -25,6 +26,7 @@
     <Project Path="tests/Odin.Core.Tests/Odin.Core.Tests.csproj" />
     <Project Path="tests/Odin.ExecutionEngine.Tests/Odin.ExecutionEngine.Tests.csproj" />
     <Project Path="tests/Odin.Integration.Tests/Odin.Integration.Tests.csproj" />
+    <Project Path="tests/Odin.Persistence.Tests/Odin.Persistence.Tests.csproj" />
     <Project Path="tests/Odin.Sdk.Tests/Odin.Sdk.Tests.csproj" />
   </Folder>
 </Solution>
