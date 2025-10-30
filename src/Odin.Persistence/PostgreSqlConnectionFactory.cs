@@ -32,26 +32,29 @@ public sealed class PostgreSqlConnectionFactory : IDbConnectionFactory
     public async Task<Result<IDbConnection>> CreateConnectionAsync(CancellationToken cancellationToken = default)
     {
         return await Result
-            .TryAsync<IDbConnection>(async ct =>
-            {
-                var connection = new NpgsqlConnection(_connectionString);
-                await connection.OpenAsync(ct).ConfigureAwait(false);
-
-                _logger.LogDebug("Opened PostgreSQL connection {ConnectionId}", connection.ProcessID);
-
-                return connection;
-            }, cancellationToken, ex =>
-            {
-                switch (ex)
+            .TryAsync<IDbConnection>(
+                async ct =>
                 {
-                    case NpgsqlException npgsqlEx:
-                        _logger.LogError(npgsqlEx, "Failed to open PostgreSQL connection");
-                        return Error.From($"Database connection failed: {npgsqlEx.Message}", "DB_CONNECTION_ERROR");
-                    default:
-                        _logger.LogError(ex, "Unexpected error opening PostgreSQL connection");
-                        return Error.From($"Unexpected database error: {ex.Message}", "DB_UNEXPECTED_ERROR");
-                }
-            })
+                    var connection = new NpgsqlConnection(_connectionString);
+                    await connection.OpenAsync(ct).ConfigureAwait(false);
+
+                    _logger.LogDebug("Opened PostgreSQL connection {ConnectionId}", connection.ProcessID);
+
+                    return connection;
+                },
+                ex =>
+                {
+                    switch (ex)
+                    {
+                        case NpgsqlException npgsqlEx:
+                            _logger.LogError(npgsqlEx, "Failed to open PostgreSQL connection");
+                            return Error.From($"Database connection failed: {npgsqlEx.Message}", "DB_CONNECTION_ERROR");
+                        default:
+                            _logger.LogError(ex, "Unexpected error opening PostgreSQL connection");
+                            return Error.From($"Unexpected database error: {ex.Message}", "DB_UNEXPECTED_ERROR");
+                    }
+                },
+                cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -63,19 +66,22 @@ public sealed class PostgreSqlConnectionFactory : IDbConnectionFactory
                 using (connection)
                 {
                     return await Result
-                        .TryAsync(async innerCt =>
-                        {
-                            using var command = connection.CreateCommand();
-                            command.CommandText = "SELECT 1";
-                            var _ = await Task.Run(() => command.ExecuteScalar(), innerCt).ConfigureAwait(false);
+                        .TryAsync(
+                            async innerCt =>
+                            {
+                                using var command = connection.CreateCommand();
+                                command.CommandText = "SELECT 1";
+                                var _ = await Task.Run(() => command.ExecuteScalar(), innerCt).ConfigureAwait(false);
 
-                            _logger.LogInformation("PostgreSQL connection test succeeded");
-                            return true;
-                        }, ct, ex =>
-                        {
-                            _logger.LogError(ex, "PostgreSQL connection test failed");
-                            return Error.From($"Connection test failed: {ex.Message}", "DB_TEST_FAILED");
-                        })
+                                _logger.LogInformation("PostgreSQL connection test succeeded");
+                                return true;
+                            },
+                            ex =>
+                            {
+                                _logger.LogError(ex, "PostgreSQL connection test failed");
+                                return Error.From($"Connection test failed: {ex.Message}", "DB_TEST_FAILED");
+                            },
+                            ct)
                         .ConfigureAwait(false);
                 }
             }, cancellationToken)

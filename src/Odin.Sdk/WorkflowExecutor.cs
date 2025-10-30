@@ -77,24 +77,27 @@ public sealed class WorkflowExecutor
         CancellationToken cancellationToken)
     {
         var captured = await Result
-            .TryAsync(async ct =>
-            {
-                using var scope = _scopeFactory.CreateScope();
-                var services = scope.ServiceProvider;
-                var options = BuildOptions(task);
-
-                return await registration.Executor(services, options, task.Input, ct).ConfigureAwait(false);
-            }, cancellationToken, ex =>
-            {
-                if (ex is OperationCanceledException)
+            .TryAsync(
+                async ct =>
                 {
-                    return Error.Canceled(token: cancellationToken);
-                }
+                    using var scope = _scopeFactory.CreateScope();
+                    var services = scope.ServiceProvider;
+                    var options = BuildOptions(task);
 
-                return Error.FromException(ex)
-                    .WithMetadata("workflowId", task.WorkflowId)
-                    .WithMetadata("runId", task.RunId.ToString());
-            })
+                    return await registration.Executor(services, options, task.Input, ct).ConfigureAwait(false);
+                },
+                ex =>
+                {
+                    if (ex is OperationCanceledException)
+                    {
+                        return Error.Canceled(token: cancellationToken);
+                    }
+
+                    return Error.FromException(ex)
+                        .WithMetadata("workflowId", task.WorkflowId)
+                        .WithMetadata("runId", task.RunId.ToString());
+                },
+                cancellationToken)
             .ConfigureAwait(false);
 
         return captured
